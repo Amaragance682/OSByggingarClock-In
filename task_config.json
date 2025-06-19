@@ -1,11 +1,14 @@
 {
   "Reykjavik": {
     "OSByggingar": ["Pour concrete", "Lay bricks"],
-    "ElectricCompany123": ["Change lightbulbs", "Wire breaker panel"],
-    "PaintingCompany123": ["Paint ceiling", "Remove graffiti"]
+    "rafverk": ["Change lightbulbs", "Wire breaker panel"],
+    "malverk": ["Paint ceiling", "Remove graffiti"],
+    "JLLausnir": ["Install door hinge on office", "Install alarm bells"]
   },
   "Akureyri": {
-    "ElectricCompany123": ["Install lighting"],
-    "OSByggingar": ["Foundation prep"]
+    "OSByggingar": ["Foundation prep", "build wall", "build fence"],
+    "rafverk": ["Install lighting", "Wire outlets on house 123"],
+    "malverk": ["Paint railing on balcony", "spray the fence"],
+    "JLLausnir": ["Install windows", "Install doors"]
   }
 }
