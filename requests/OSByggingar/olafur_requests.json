@@ -1,0 +1,10 @@
+[
+    {
+        "task": "Foundation prep",
+        "location": "Akureyri",
+        "requested_start": "2025-06-18T09:00:00",
+        "requested_end": "2025-06-18T16:00:00",
+        "reason": "hallo, eg gleymdi ad stimpla mig ut, eg vann fra 9:00 til 16:00, ekki 9:00 til 21:00",
+        "status": "pending"
+    }
+]
