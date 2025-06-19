@@ -1,110 +1,214 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 from PIL import Image, ImageTk
-from utils import load_users, load_logs, save_logs, calc_duration, format_time, format_duration, now_trimmed
-from datetime import datetime
+from utils import (
+    load_users,
+    get_user_by_pin,
+    load_employee_logs,
+    save_employee_logs,
+    create_shift_entry,
+    close_last_shift,
+    is_clocked_in,
+    format_time,
+    format_duration,
+    load_task_config,
+    get_locations_for_user,
+    get_tasks_for_user,
+)
 
 users = load_users()
-logs = load_logs()
 
-user_map = {f"{u['name']} ({u['id']})": u['id'] for u in users}
-user_names = list(user_map.keys())
+class ShiftClockApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.configure(bg="#e6f0fa")  # light blueish background
+        self.title("Shift Clock System")
+        self.geometry("500x400")
 
+        self.user = None
 
+        self.login_frame = LoginFrame(self)
+        self.task_frame = TaskFrame(self)
 
+        self.login_frame.pack()
 
-def is_clocked_in(user_id):
-    for log in reversed(logs):
-        if log["user_id"] == user_id and log["clock_out"] is None:
-            return True
-    return False
+    def switch_to_task(self, user):
+        self.user = user
+        self.login_frame.pack_forget()
+        self.task_frame.pack()
+        self.task_frame.reset()
 
-def clock_in(user_id):
-    if is_clocked_in(user_id):
-        return "Already clocked in."
-    logs.append({"user_id": user_id, "clock_in": now_trimmed(), "clock_out": None})
-    save_logs(logs)
-    return "Clocked in successfully."
+    def clock_out_and_return(self):
+        logs = load_employee_logs(self.user)
+        closed = close_last_shift(logs)
+        save_employee_logs(self.user, logs)
+        msg = format_duration(closed["clock_in"], closed["clock_out"]) if closed else "Not clocked in."
+        messagebox.showinfo("Clocked Out", msg)
+        self.task_frame.pack_forget()
+        self.login_frame.pack()
 
-def clock_out(user_id):
-    for log in reversed(logs):
-        if log["user_id"] == user_id and log["clock_out"] is None:
-            log["clock_out"] = now_trimmed()
-            save_logs(logs)
-            return format_duration(log["clock_in"], log["clock_out"])
-    return "You are not clocked in."
-
-def update_ui(*args):
-    selected_user = user_var.get()
-    if selected_user not in user_map:
-        action_btn.config(state="disabled", text="Clock In/Out")
-        status_label.config(text="")
-        return
-
-    uid = user_map[selected_user]
-
-    # Show whether they're clocked in and at what time
-    if is_clocked_in(uid):
-        action_btn.config(text="Clock Out", state="normal", command=lambda: handle_action(uid, "out"))
-        user_logs = [log for log in logs if log["user_id"] == uid and log["clock_out"] is None]
-        if user_logs:
-            latest = user_logs[-1]
-            clock_in_time = format_time(latest["clock_in"])
-            status_label.config(text=f"Clocked in at {clock_in_time}")
-    else:
-        action_btn.config(text="Clock In", state="normal", command=lambda: handle_action(uid, "in"))
-        status_label.config(text="Ready to clock in.")
-
-def handle_action(uid, action):
-    if action == "in":
-        msg = clock_in(uid)
-    else:
-        msg = clock_out(uid)
-    messagebox.showinfo("Success", msg)
-    reset_ui()
-
-def reset_ui():
-    user_var.set("")
-    action_btn.config(text="Clock In/Out", state="disabled")
-    status_label.config(text="")
-
-# GUI setup
-root = tk.Tk()
-
-try:
-    image = Image.open("logo.png")  # or "your_image.jpg"
-    image = image.resize((300, 100))  # Adjust size as needed
-    photo = ImageTk.PhotoImage(image)
-
-    image_label = tk.Label(root, image=photo)
-    image_label.image = photo  # Prevent garbage collection
-    image_label.pack(pady=10)
-except Exception as e:
-    print(f"Error loading image: {e}")
-
-root.title("Shift Clock System")
-root.geometry("500x300")  # Wider and taller
-
-# Font styling
-font_large = ("Helvetica", 16)
-font_medium = ("Helvetica", 14)
-
-# Widgets
-tk.Label(root, text="Select Your Name", font=font_large).pack(pady=15)
-
-user_var = tk.StringVar(root)
-user_var.trace("w", update_ui)
-
-user_dropdown = tk.OptionMenu(root, user_var, *user_names)
-user_dropdown.config(font=font_medium, width=25)
-user_dropdown.pack(pady=10)
-
-action_btn = tk.Button(root, text="Clock In/Out", font=font_medium, state="disabled", width=20, height=2)
-action_btn.pack(pady=20)
-
-status_label = tk.Label(root, text="", fg="blue", font=font_medium)
-status_label.pack()
+    def log_out_without_clocking_out(self):
+        self.task_frame.pack_forget()
+        self.login_frame.pack()
 
 
+class LoginFrame(tk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        try:
+            image = Image.open("logo.png")
+            image = image.resize((500,300))  # Adjust size as needed
+            self.photo = ImageTk.PhotoImage(image)
+            self.image_label = tk.Label(self, image=self.photo)
+            self.image_label.pack(pady=10)
+        except Exception as e:
+            print(f"Error loading image: {e}")
 
-root.mainloop()
+        tk.Label(self, text="Enter PIN", font=("Helvetica", 16)).pack(pady=20)
+
+        self.pin_var = tk.StringVar()
+        self.entry = tk.Entry(self, textvariable=self.pin_var, font=("Helvetica", 14), show="*")
+        self.entry.pack(pady=10)
+        self.entry.focus()
+
+        tk.Button(self, text="Login", font=("Helvetica", 14), command=self.check_pin).pack(pady=10)
+
+    def check_pin(self):
+        pin = self.pin_var.get()
+        user = get_user_by_pin(pin, users)
+        if user:
+            self.pin_var.set("")
+            self.master.switch_to_task(user)
+        else:
+            messagebox.showerror("Error", "Invalid PIN")
+
+
+class TaskFrame(tk.Frame):
+    def __init__(self, master):
+
+        super().__init__(master)
+
+        # Container box
+        self.container = tk.Frame(self, bg="#f0f0f0", bd=0, relief="flat", padx=20, pady=20)
+        self.container.pack(expand=True, pady=20)
+        
+        # Load task config
+        self.task_config = load_task_config()
+        self.task_var = tk.StringVar()
+
+        try:
+            image = Image.open("logo.png")
+            image = image.resize((500,300))  # Adjust size as needed
+            self.photo = ImageTk.PhotoImage(image)
+            self.image_label = tk.Label(self.container, image=self.photo)  # ✅ this is correct
+            self.image_label.pack(pady=10)
+        except Exception as e:
+            print(f"Error loading image: {e}")
+            
+
+        self.company_label = tk.Label(self, text="", font=("Helvetica", 16, "italic"))
+        self.company_label.pack(pady=(0, 10))
+
+        self.welcome_label = tk.Label(self, text="", font=("Helvetica", 12, "italic"))
+        self.welcome_label.pack(pady=(0, 10))
+
+
+        # Location label and dropdown
+        self.location_label = tk.Label(self, text="Select Location", font=("Helvetica", 14))
+        self.location_label.pack(pady=(10, 0))
+
+        self.location_var = tk.StringVar()
+        self.location_dropdown = ttk.Combobox(self, textvariable=self.location_var, state="readonly", font=("Helvetica", 12))
+        self.location_dropdown.pack(pady=5)
+        self.location_dropdown.bind("<<ComboboxSelected>>", self.update_task_dropdown)
+
+        # Task label and dropdown
+        self.task_label = tk.Label(self, text="Select Task", font=("Helvetica", 14))
+        self.task_label.pack(pady=(10, 0))
+
+        self.task_dropdown = ttk.Combobox(self, textvariable=self.task_var, state="disabled", font=("Helvetica", 12))
+        self.task_dropdown.pack(pady=5)
+
+        # Status + buttons
+        self.status_label = tk.Label(self, text="", fg="blue", font=("Helvetica", 12))
+        self.status_label.pack(pady=10)
+
+        self.clock_button = tk.Button(self, text="Clock In", font=("Helvetica", 14), command=self.clock_toggle)
+        self.clock_button.pack(pady=5)
+
+        self.bottom_bar = tk.Frame(self, bg="#f0f0f0")
+        self.bottom_bar.pack(fill="x", side="bottom", pady=(10, 5), padx=10)
+
+        self.logout_btn = tk.Button(self.bottom_bar, text="Log Out", font=("Helvetica", 10), command=self.master.log_out_without_clocking_out)
+        self.logout_btn.pack(side="right")
+
+
+    def reset(self):
+        user = self.master.user
+
+        # working company
+        self.company_label.config(text=f"Company: {user['company']}")
+
+        # welcome message for current user
+        self.welcome_label.config(text=f"Welcome {user['name']}")
+
+        locations = get_locations_for_user(user, self.task_config)
+
+        self.location_var.set("")
+        self.task_var.set("")
+        self.location_dropdown["values"] = locations
+        self.task_dropdown.set("")
+        self.task_dropdown["values"] = []
+
+        self.update_ui()
+
+    def update_ui(self):
+        if is_clocked_in(self.master.user):
+            self.clock_button.config(text="Clock Out")
+            self.status_label.config(text="Currently clocked in.")
+        else:
+            self.clock_button.config(text="Clock In")
+            self.status_label.config(text="Not clocked in.")
+
+    def clock_toggle(self):
+        user = self.master.user
+        logs = load_employee_logs(user)
+
+        if is_clocked_in(user):
+            self.master.clock_out_and_return()
+        else:
+            task = self.task_var.get()
+            location = self.location_var.get()
+            if not self.location_var.get() or not self.task_var.get():
+                messagebox.showerror("Missing Info", "Please select a location and task.")
+                return
+            task = task.strip()
+            location = location.strip()
+            logs.append(create_shift_entry(task, location))
+            save_employee_logs(user, logs)
+            messagebox.showinfo("Clocked In", f"Now working on '{task}' at '{location}'")
+            self.update_ui()
+
+    def update_task_dropdown(self, *args):
+        user = self.master.user
+        selected_location = self.location_var.get()
+        tasks = get_tasks_for_user(user, selected_location, self.task_config)
+
+        self.task_var.set("")
+        self.task_dropdown.set("")
+        self.task_dropdown["values"] = tasks
+
+        if tasks:
+            self.task_dropdown["values"] = tasks
+            self.task_dropdown.set("")
+            self.task_dropdown.config(state="readonly")
+        else:
+            self.task_dropdown.set("")
+            self.task_dropdown["values"] = []
+            self.task_dropdown.config(state="disabled")
+
+
+# Run the app
+if __name__ == "__main__":
+    app = ShiftClockApp()
+    app.mainloop()

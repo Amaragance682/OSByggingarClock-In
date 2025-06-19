@@ -1,5 +1,8 @@
 [
-  {"id": "u01", "name": "Oli saer"},
-  {"id": "u02", "name": "Jon"},
-  {"id": "u03", "name": "Bubbi"}
+  {"id": "olafur", "name": "Oli saer", "company": "OSByggingar", "pin": "0001" },
+  {"id": "jon", "name": "Jon", "company": "JLLausnir", "pin": "0002" },
+  {"id": "gudrun", "name": "Gudrun", "company": "JLLausnir", "pin": "0003" },
+  {"id": "sigurdur", "name": "Sigurdur", "company": "JLLausnir", "pin": "0004" },
+  {"id": "bubbi", "name": "Bubbi", "company": "OSByggingar", "pin": "0005" },
+  {"id": "daniel", "name": "Daniel", "company": "OSByggingar", "pin": "0006" }
 ]

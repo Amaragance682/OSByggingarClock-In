@@ -1,0 +1,50 @@
+[
+    {
+        "task": "taka rusl ut",
+        "location": "reykjavik",
+        "clock_in": "2025-06-18T16:10:00",
+        "clock_out": "2025-06-18T16:10:00"
+    },
+    {
+        "task": "henda spitum",
+        "location": "reykjavik",
+        "clock_in": "2025-06-18T16:11:00",
+        "clock_out": "2025-06-18T16:11:00"
+    },
+    {
+        "task": "sad",
+        "location": "res",
+        "clock_in": "2025-06-18T16:12:00",
+        "clock_out": "2025-06-18T16:12:00"
+    },
+    {
+        "task": "hoppa",
+        "location": "rkvk",
+        "clock_in": "2025-06-18T16:17:00",
+        "clock_out": "2025-06-18T16:17:00"
+    },
+    {
+        "task": "velja nammi",
+        "location": "reykjavik",
+        "clock_in": "2025-06-18T16:20:00",
+        "clock_out": "2025-06-18T16:20:00"
+    },
+    {
+        "task": "sadasd",
+        "location": "rfasd",
+        "clock_in": "2025-06-18T16:20:00",
+        "clock_out": "2025-06-19T09:16:00"
+    },
+    {
+        "task": "Foundation prep",
+        "location": "Akureyri",
+        "clock_in": "2025-06-19T09:16:00",
+        "clock_out": "2025-06-19T09:27:00"
+    },
+    {
+        "task": "Pour concrete",
+        "location": "Reykjavik",
+        "clock_in": "2025-06-19T09:45:00",
+        "clock_out": "2025-06-19T09:49:00"
+    }
+]

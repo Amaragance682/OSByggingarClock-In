@@ -1,0 +1,11 @@
+{
+  "Reykjavik": {
+    "OSByggingar": ["Pour concrete", "Lay bricks"],
+    "ElectricCompany123": ["Change lightbulbs", "Wire breaker panel"],
+    "PaintingCompany123": ["Paint ceiling", "Remove graffiti"]
+  },
+  "Akureyri": {
+    "ElectricCompany123": ["Install lighting"],
+    "OSByggingar": ["Foundation prep"]
+  }
+}
