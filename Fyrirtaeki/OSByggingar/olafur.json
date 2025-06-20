@@ -27,6 +27,24 @@
         "task": "Pour concrete",
         "location": "Reykjavik",
         "clock_in": "2025-06-19T15:17:00",
-        "clock_out": null
+        "clock_out": "2025-06-19T15:54:00"
+    },
+    {
+        "task": "build fence",
+        "location": "Akureyri",
+        "clock_in": "2025-06-19T15:55:00",
+        "clock_out": "2025-06-19T15:55:00"
+    },
+    {
+        "task": "build wall",
+        "location": "Akureyri",
+        "clock_in": "2025-06-20T12:08:00",
+        "clock_out": "2025-06-20T12:08:00"
+    },
+    {
+        "task": "Foundation prep",
+        "location": "Akureyri",
+        "clock_in": "2025-06-20T12:08:00",
+        "clock_out": "2025-06-20T12:08:00"
     }
 ]
