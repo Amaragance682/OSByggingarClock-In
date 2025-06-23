@@ -27,7 +27,7 @@ class ShiftClockApp(tk.Tk):
         self.request_frame = RequestFormFrame(self)
         self.configure(bg="#e6f0fa")  # light blueish background
         self.title("Shift Clock System")
-        self.geometry("500x400")
+        self.geometry("500x800")
 
         self.user = None
 
@@ -70,7 +70,7 @@ class LoginFrame(tk.Frame):
         super().__init__(master)
         try:
             image = Image.open("logo.png")
-            image = image.resize((500,300))  # Adjust size as needed
+            image = image.resize((500,300))  
             self.photo = ImageTk.PhotoImage(image)
             self.image_label = tk.Label(self, image=self.photo)
             self.image_label.pack(pady=10)
@@ -80,13 +80,14 @@ class LoginFrame(tk.Frame):
         tk.Label(self, text="Enter PIN", font=("Helvetica", 16)).pack(pady=20)
 
         self.pin_var = tk.StringVar()
-        self.entry = tk.Entry(self, textvariable=self.pin_var, font=("Helvetica", 14), show="*")
+        self.entry = tk.Entry(self, textvariable=self.pin_var, font=("Helvetica", 14), show="*", justify="center")
         self.entry.pack(pady=10)
         self.entry.focus()
+        self.entry.bind("<Return>", self.check_pin)
 
         tk.Button(self, text="Login", font=("Helvetica", 14), command=self.check_pin).pack(pady=10)
 
-    def check_pin(self):
+    def check_pin(self, event=None):
         pin = self.pin_var.get()
         user = get_user_by_pin(pin, users)
         if user:
