@@ -1,0 +1,10 @@
+[
+    {
+        "task": "build wall",
+        "location": "Akureyri",
+        "requested_start": "2025-06-18T08:00:00",
+        "requested_end": "2025-06-18T10:25:00",
+        "reason": "eg gleymdi ad koma in og stimpla, eg vann fra 8 til 10:25",
+        "status": "pending"
+    }
+]

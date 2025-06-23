@@ -294,7 +294,7 @@ class TaskFrame(tk.Frame):
             logs.append(create_shift_entry(task, location))
             save_employee_logs(user, logs)
             messagebox.showinfo("Clocked In", f"Now working on '{task}' at '{location}'")
-            self.update_ui()
+            self.master.log_out_without_clocking_out()  # Auto logout after clock-in
 
     def update_task_dropdown(self, *args):
         user = self.master.user
