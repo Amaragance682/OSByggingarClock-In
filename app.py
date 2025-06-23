@@ -19,6 +19,11 @@ from utils import (
     get_tasks_for_user,
 )
 
+# !!!CHANGE THIS TO CURRENT LOCATION OF THE LAPTOP!!!
+# ==================================================#
+LOCATION = "Reykjavik"
+# ==================================================#
+
 users = load_users()
 
 class ShiftClockApp(tk.Tk):
@@ -114,25 +119,18 @@ class RequestFormFrame(tk.Frame):
         self.end_entry.pack(pady=5)
 
         # Dropdowns
-        self.location_var = tk.StringVar()
         self.task_var = tk.StringVar()
 
-        self.location_dropdown = ttk.Combobox(self, textvariable=self.location_var, state="readonly", font=("Helvetica", 12))
         self.task_dropdown = ttk.Combobox(self, textvariable=self.task_var, state="disabled", font=("Helvetica", 12))
 
-        self.location_dropdown.pack(pady=5)
         self.task_dropdown.pack(pady=5)
-
-        # 🔁 Add the same binding to update tasks
-        self.location_dropdown.bind("<<ComboboxSelected>>", self.update_task_dropdown)
 
         tk.Button(self, text="Submit Request", command=self.submit_request).pack(pady=10)
         tk.Button(self, text="Back", command=self.master.back_to_task_view).pack()
 
     def update_task_dropdown(self, event=None):
         user = self.master.user
-        selected_location = self.location_var.get()
-        tasks = get_tasks_for_user(user, selected_location, self.task_config)
+        tasks = get_tasks_for_user(user, LOCATION, self.task_config)
 
         self.task_var.set("")
         self.task_dropdown.set("")
@@ -143,11 +141,20 @@ class RequestFormFrame(tk.Frame):
         else:
             self.task_dropdown.config(state="disabled")
             
+
+    # LOADS TASKS, RESETS DROPDOWNS, CLEARS REASON TEXT, START AND END ENTRIES AND SHIFT EDIT REQUEST SCREEN
     def reset(self):
         user = self.master.user
-        locations = get_locations_for_user(user, self.task_config)
-        self.location_dropdown["values"] = locations
-        self.task_dropdown["values"] = []
+        tasks = get_tasks_for_user(user, LOCATION, self.task_config)
+
+        self.task_dropdown["values"] = tasks
+        self.task_var.set("")
+        self.task_dropdown.set("")
+
+        if tasks:
+            self.task_dropdown.config(state="readonly")
+        else:
+            self.task_dropdown.config(state="disabled")
 
     def submit_request(self):
         user = self.master.user
@@ -160,7 +167,7 @@ class RequestFormFrame(tk.Frame):
         
         data = {
             "task": self.task_var.get(),
-            "location": self.location_var.get(),
+            "location": LOCATION,
             "requested_start": requested_start,
             "requested_end": requested_end,
             "reason": self.reason_text.get("1.0", "end").strip(),
@@ -218,65 +225,73 @@ class TaskFrame(tk.Frame):
         self.welcome_label = tk.Label(self, text="", font=("Helvetica", 12, "italic"))
         self.welcome_label.pack(pady=(0, 10))
 
+        self.main_frame = tk.Frame(self)
+        self.main_frame.pack(expand=True)
 
-        # Location label and dropdown
-        self.location_label = tk.Label(self, text="Select Location", font=("Helvetica", 14))
-        self.location_label.pack(pady=(10, 0))
-
-        self.location_var = tk.StringVar()
-        self.location_dropdown = ttk.Combobox(self, textvariable=self.location_var, state="readonly", font=("Helvetica", 12))
-        self.location_dropdown.pack(pady=5)
-        self.location_dropdown.bind("<<ComboboxSelected>>", self.update_task_dropdown)
-
-        # Task label and dropdown
-        self.task_label = tk.Label(self, text="Select Task", font=("Helvetica", 14))
+        # Task controls
+        self.task_controls_frame = tk.Frame(self.main_frame)
+        self.task_label = tk.Label(self.task_controls_frame, text="Select Task", font=("Helvetica", 14))
         self.task_label.pack(pady=(10, 0))
-
-        self.task_dropdown = ttk.Combobox(self, textvariable=self.task_var, state="disabled", font=("Helvetica", 12))
+        self.task_dropdown = ttk.Combobox(self.task_controls_frame, textvariable=self.task_var, state="disabled", font=("Helvetica", 12))
         self.task_dropdown.pack(pady=5)
 
-        # Status + buttons
-        self.status_label = tk.Label(self, text="", fg="blue", font=("Helvetica", 12))
-        self.status_label.pack(pady=10)
+        # Status
+        self.status_label = tk.Label(self.main_frame, text="", fg="blue", font=("Helvetica", 12))
 
-        self.clock_button = tk.Button(self, text="Clock In", font=("Helvetica", 14), command=self.clock_toggle)
-        self.clock_button.pack(pady=5)
+        # Clock button
+        self.clock_button = tk.Button(self.main_frame, text="Clock In", font=("Helvetica", 14), command=self.clock_toggle)
 
-        tk.Button(self, text="Request Shift Edit", font=("Helvetica", 12), command=self.master.show_request_form).pack(pady=5)
+        # Request button
+        self.request_button = tk.Button(self.main_frame, text="Request Shift Edit", font=("Helvetica", 12), command=self.master.show_request_form)
+                
 
-
-        self.bottom_bar = tk.Frame(self, bg="#f0f0f0")
-        self.bottom_bar.pack(fill="x", side="bottom", pady=(10, 5), padx=10)
-
-        self.logout_btn = tk.Button(self.bottom_bar, text="Log Out", font=("Helvetica", 10), command=self.master.log_out_without_clocking_out)
-        self.logout_btn.pack(side="right")
-
+    # Prepares the task selection screen after login. Sets welcome text, task options, and updates UI (clocked-in status).
     def reset(self):
         user = self.master.user
 
-        # working company
-        self.company_label.config(text=f"Company: {user['company']}")
+        # Show company and hardcoded location
+        self.company_label.config(text=f"Company: {user['company']} – Location: {LOCATION}")
 
-        # welcome message for current user
+        # Welcome message
         self.welcome_label.config(text=f"Welcome {user['name']}")
 
-        locations = get_locations_for_user(user, self.task_config)
-
-        self.location_var.set("")
+        # Reset task selection
         self.task_var.set("")
-        self.location_dropdown["values"] = locations
         self.task_dropdown.set("")
         self.task_dropdown["values"] = []
 
+        # Update status (clocked in or not)
         self.update_ui()
 
+        # Preload tasks for this location
+        self.update_task_dropdown()
+
     def update_ui(self):
-        if is_clocked_in(self.master.user):
+        # Clear everything from main_frame
+        for widget in self.main_frame.winfo_children():
+            widget.pack_forget()
+
+        user = self.master.user
+        clocked_in = is_clocked_in(user)
+
+        if not clocked_in:
+            self.task_controls_frame.pack(pady=10)
+            print("User is not clocked in, showing task selection.")
+        else:
+            print("User is clocked in.")
+
+        # ✅ Update status text and clock button label
+        if clocked_in:
             self.clock_button.config(text="Clock Out")
             self.status_label.config(text="Currently clocked in.")
         else:
             self.clock_button.config(text="Clock In")
             self.status_label.config(text="Not clocked in.")
+
+        # Repack elements
+        self.status_label.pack(pady=10)
+        self.clock_button.pack(pady=5)
+        self.request_button.pack(pady=5)
 
     def clock_toggle(self):
         user = self.master.user
@@ -286,9 +301,9 @@ class TaskFrame(tk.Frame):
             self.master.clock_out_and_return()
         else:
             task = self.task_var.get()
-            location = self.location_var.get()
-            if not self.location_var.get() or not self.task_var.get():
-                messagebox.showerror("Missing Info", "Please select a location and task.")
+            location = LOCATION
+            if not self.task_var.get():
+                messagebox.showerror("Missing Info", "Please select a task.")
                 return
             task = task.strip()
             location = location.strip()
@@ -299,8 +314,7 @@ class TaskFrame(tk.Frame):
 
     def update_task_dropdown(self, *args):
         user = self.master.user
-        selected_location = self.location_var.get()
-        tasks = get_tasks_for_user(user, selected_location, self.task_config)
+        tasks = get_tasks_for_user(user, LOCATION, self.task_config)
 
         self.task_var.set("")
         self.task_dropdown.set("")
