@@ -5,8 +5,6 @@ from datetime import datetime
 # === CONFIGURATIONS === #
 ROOT_DIR = "Fyrirtaeki"  # Base directory for company folders
 
-
-
 # === USER MANAGEMENT === #
 
 # Load user definitions from users.json
