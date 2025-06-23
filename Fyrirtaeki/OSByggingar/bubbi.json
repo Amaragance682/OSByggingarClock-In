@@ -3,6 +3,18 @@
         "task": "Lay bricks",
         "location": "Reykjavik",
         "clock_in": "2025-06-19T14:32:00",
+        "clock_out": "2025-06-19T23:00:00"
+    },
+    {
+        "task": "Lay bricks",
+        "location": "Reykjavik",
+        "clock_in": "2025-06-20T09:44:00",
+        "clock_out": "2025-06-20T09:45:00"
+    },
+    {
+        "task": "build wall",
+        "location": "Akureyri",
+        "clock_in": "2025-06-20T10:23:00",
         "clock_out": null
     }
 ]

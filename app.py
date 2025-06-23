@@ -1,4 +1,7 @@
 import tkinter as tk
+import os
+import json
+from datetime import datetime
 from tkinter import messagebox, ttk
 from PIL import Image, ImageTk
 from utils import (
@@ -21,6 +24,7 @@ users = load_users()
 class ShiftClockApp(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.request_frame = RequestFormFrame(self)
         self.configure(bg="#e6f0fa")  # light blueish background
         self.title("Shift Clock System")
         self.geometry("500x800")
@@ -31,6 +35,15 @@ class ShiftClockApp(tk.Tk):
         self.task_frame = TaskFrame(self)
 
         self.login_frame.pack()
+    
+    def show_request_form(self):
+        self.task_frame.pack_forget()
+        self.request_frame.pack()
+        self.request_frame.reset()
+
+    def back_to_task_view(self):
+        self.request_frame.pack_forget()
+        self.task_frame.pack()
 
     def switch_to_task(self, user):
         self.user = user
@@ -82,6 +95,98 @@ class LoginFrame(tk.Frame):
             self.master.switch_to_task(user)
         else:
             messagebox.showerror("Error", "Invalid PIN")
+
+class RequestFormFrame(tk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        
+        self.task_config = load_task_config()
+
+        self.reason_text = tk.Text(self, height=5, width=40)
+        self.reason_text.pack(pady=10)
+
+        self.start_entry = tk.Entry(self)
+        self.start_entry.insert(0, "2025-06-18 09:00")  # friendlier format
+        self.start_entry.pack(pady=5)
+
+        self.end_entry = tk.Entry(self)
+        self.end_entry.insert(0, "2025-06-18 12:00")  # friendlier format
+        self.end_entry.pack(pady=5)
+
+        # Dropdowns
+        self.location_var = tk.StringVar()
+        self.task_var = tk.StringVar()
+
+        self.location_dropdown = ttk.Combobox(self, textvariable=self.location_var, state="readonly", font=("Helvetica", 12))
+        self.task_dropdown = ttk.Combobox(self, textvariable=self.task_var, state="disabled", font=("Helvetica", 12))
+
+        self.location_dropdown.pack(pady=5)
+        self.task_dropdown.pack(pady=5)
+
+        # 🔁 Add the same binding to update tasks
+        self.location_dropdown.bind("<<ComboboxSelected>>", self.update_task_dropdown)
+
+        tk.Button(self, text="Submit Request", command=self.submit_request).pack(pady=10)
+        tk.Button(self, text="Back", command=self.master.back_to_task_view).pack()
+
+    def update_task_dropdown(self, event=None):
+        user = self.master.user
+        selected_location = self.location_var.get()
+        tasks = get_tasks_for_user(user, selected_location, self.task_config)
+
+        self.task_var.set("")
+        self.task_dropdown.set("")
+        self.task_dropdown["values"] = tasks
+
+        if tasks:
+            self.task_dropdown.config(state="readonly")
+        else:
+            self.task_dropdown.config(state="disabled")
+            
+    def reset(self):
+        user = self.master.user
+        locations = get_locations_for_user(user, self.task_config)
+        self.location_dropdown["values"] = locations
+        self.task_dropdown["values"] = []
+
+    def submit_request(self):
+        user = self.master.user
+        try:
+            requested_start = datetime.strptime(self.start_entry.get(), "%Y-%m-%d %H:%M").isoformat()
+            requested_end = datetime.strptime(self.end_entry.get(), "%Y-%m-%d %H:%M").isoformat()
+        except ValueError:
+            messagebox.showerror("Invalid Time Format", "Please use YYYY-MM-DD HH:MM format for both start and end.")
+            return
+        
+        data = {
+            "task": self.task_var.get(),
+            "location": self.location_var.get(),
+            "requested_start": requested_start,
+            "requested_end": requested_end,
+            "reason": self.reason_text.get("1.0", "end").strip(),
+            "status": "pending"
+        }
+
+        # Save under 'requests' folder
+        path = os.path.join("requests", user["company"], f"{user['id']}_requests.json")
+        folder = os.path.dirname(path)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                requests = json.load(f)
+        else:
+            requests = []
+        
+        requests.append(data)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(requests, f, indent=4)
+        
+        messagebox.showinfo("Request Submitted", "Your request has been sent.")
+        self.master.back_to_task_view()
+
+
 
 
 class TaskFrame(tk.Frame):
@@ -137,12 +242,14 @@ class TaskFrame(tk.Frame):
         self.clock_button = tk.Button(self, text="Clock In", font=("Helvetica", 14), command=self.clock_toggle)
         self.clock_button.pack(pady=5)
 
+        tk.Button(self, text="Request Shift Edit", font=("Helvetica", 12), command=self.master.show_request_form).pack(pady=5)
+
+
         self.bottom_bar = tk.Frame(self, bg="#f0f0f0")
         self.bottom_bar.pack(fill="x", side="bottom", pady=(10, 5), padx=10)
 
         self.logout_btn = tk.Button(self.bottom_bar, text="Log Out", font=("Helvetica", 10), command=self.master.log_out_without_clocking_out)
         self.logout_btn.pack(side="right")
-
 
     def reset(self):
         user = self.master.user
@@ -188,7 +295,7 @@ class TaskFrame(tk.Frame):
             logs.append(create_shift_entry(task, location))
             save_employee_logs(user, logs)
             messagebox.showinfo("Clocked In", f"Now working on '{task}' at '{location}'")
-            self.update_ui()
+            self.master.log_out_without_clocking_out()  # Auto logout after clock-in
 
     def update_task_dropdown(self, *args):
         user = self.master.user

@@ -99,19 +99,19 @@ class AdminApp(tk.Tk):
                     finished.append((user["name"], user["id"], task, location, log["clock_in"], end, duration))
 
         if active:
-            tk.Label(self.left_frame, text="⏳ Currently Working", font=("Helvetica", 14, "bold"), bg="#f4f4f4").pack(anchor="w", padx=10, pady=5)
+            tk.Label(self.left_frame, text="⏳ Currently Working", font=("Helvetica", 14, "bold"), bg="#f4f4f4", fg="#f49301").pack(anchor="w", padx=10, pady=5)
             for info in active:
                 self.make_card(info, active=True, parent=self.left_frame)
 
         if finished:
-            tk.Label(self.right_frame, text="✅ Finished Today", font=("Helvetica", 14, "bold"), bg="#f4f4f4").pack(anchor="w", padx=10, pady=10)
+            tk.Label(self.right_frame, text="✅ Finished Shifts Today", font=("Helvetica", 14, "bold"), bg="#f4f4f4", fg="#00fb04").pack(anchor="w", padx=10, pady=10)
             for info in finished:
                 self.make_card(info, active=False, parent=self.right_frame)
 
     def make_card(self, info, active=True, parent=None):
         name, uid, task, location, clock_in, clock_out, duration = info
         icon = "⏳" if active else "✅"
-        title = f"{icon} {name} ({uid})"
+        title = f"{icon} {name} "
 
         frame = tk.LabelFrame(parent or self.scroll_frame, text=title, font=("Helvetica", 12, "bold"), bg="white", padx=10, pady=5)
         frame.pack(fill="x", padx=15, pady=5)
