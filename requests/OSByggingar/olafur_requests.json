@@ -14,5 +14,13 @@
         "requested_end": "2025-06-18T17:00:00",
         "reason": "gleymdi mer og stimpladi mig ovart ut",
         "status": "pending"
+    },
+    {
+        "task": "Pour concrete",
+        "location": "Reykjavik",
+        "requested_start": "2025-06-18T09:00:00",
+        "requested_end": "2025-06-18T12:00:00",
+        "reason": "halo",
+        "status": "pending"
     }
 ]
