@@ -201,6 +201,11 @@ class TaskFrame(tk.Frame):
 
         super().__init__(master)
 
+
+        # clock buttons
+        self.clock_in_img = ImageTk.PhotoImage(Image.open("clockIn.png").resize((120, 120)))
+        self.clock_out_img = ImageTk.PhotoImage(Image.open("stopButton.jpg").resize((120, 120)))
+
         # Container box
         self.container = tk.Frame(self, bg="#f0f0f0", bd=0, relief="flat", padx=20, pady=20)
         self.container.pack(expand=True, pady=20)
@@ -239,7 +244,7 @@ class TaskFrame(tk.Frame):
         self.status_label = tk.Label(self.main_frame, text="", fg="blue", font=("Helvetica", 12))
 
         # Clock button
-        self.clock_button = tk.Button(self.main_frame, text="Clock In", font=("Helvetica", 14), command=self.clock_toggle)
+        self.clock_button = tk.Button(self.main_frame, image=self.clock_in_img, command=self.clock_toggle, bd=0)
 
         # Request button
         self.request_button = tk.Button(self.main_frame, text="Request Shift Edit", font=("Helvetica", 12), command=self.master.show_request_form)
@@ -282,11 +287,9 @@ class TaskFrame(tk.Frame):
 
         # ✅ Update status text and clock button label
         if clocked_in:
-            self.clock_button.config(text="Clock Out")
-            self.status_label.config(text="Currently clocked in.")
+            self.clock_button.config(image=self.clock_out_img)
         else:
-            self.clock_button.config(text="Clock In")
-            self.status_label.config(text="Not clocked in.")
+            self.clock_button.config(image=self.clock_in_img)
 
         # Repack elements
         self.status_label.pack(pady=10)
