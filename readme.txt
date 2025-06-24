@@ -1,1 +1,1 @@
-fakju ~~ragnar~~ oli
+fakju oli
