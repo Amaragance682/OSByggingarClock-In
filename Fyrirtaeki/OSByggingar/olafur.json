@@ -4,5 +4,11 @@
         "location": "Reykjavik",
         "clock_in": "2025-06-23T01:52:00",
         "clock_out": "2025-06-23T01:52:00"
+    },
+    {
+        "task": "Pour concrete",
+        "location": "Reykjavik",
+        "clock_in": "2025-06-24T12:37:00",
+        "clock_out": "2025-06-24T12:37:00"
     }
 ]

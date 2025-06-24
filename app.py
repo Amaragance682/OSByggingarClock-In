@@ -1,5 +1,8 @@
 import tkinter as tk
+from test import DateAndTime
+from tktimepicker import SpinTimePickerOld, constants
 import os
+from test import DateEntry
 import json
 from datetime import datetime
 from tkinter import messagebox, ttk
@@ -110,13 +113,15 @@ class RequestFormFrame(tk.Frame):
         self.reason_text = tk.Text(self, height=5, width=40)
         self.reason_text.pack(pady=10)
 
-        self.start_entry = tk.Entry(self)
-        self.start_entry.insert(0, "2025-06-18 09:00")  # friendlier format
-        self.start_entry.pack(pady=5)
+        #self.start_entry = tk.Entry(self)
+        #self.start_entry.insert(0, "2025-06-18 09:00")  # friendlier format
+        #self.start_entry.pack(pady=5)
 
-        self.end_entry = tk.Entry(self)
-        self.end_entry.insert(0, "2025-06-18 12:00")  # friendlier format
-        self.end_entry.pack(pady=5)
+        self.start_entry = DateAndTime(self)
+        self.start_entry.pack()
+
+        self.end_entry = DateAndTime(self)
+        self.end_entry.pack()
 
         # Dropdowns
         self.task_var = tk.StringVar()
@@ -159,8 +164,8 @@ class RequestFormFrame(tk.Frame):
     def submit_request(self):
         user = self.master.user
         try:
-            requested_start = datetime.strptime(self.start_entry.get(), "%Y-%m-%d %H:%M").isoformat()
-            requested_end = datetime.strptime(self.end_entry.get(), "%Y-%m-%d %H:%M").isoformat()
+            requested_start = datetime.strptime(self.start_entry.get_iso(), "%Y-%m-%d %H:%M").isoformat()
+            requested_end = datetime.strptime(self.end_entry.get_iso(), "%Y-%m-%d %H:%M").isoformat()
         except ValueError:
             messagebox.showerror("Invalid Time Format", "Please use YYYY-MM-DD HH:MM format for both start and end.")
             return
