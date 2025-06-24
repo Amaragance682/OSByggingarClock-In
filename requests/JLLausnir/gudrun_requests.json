@@ -1,11 +1,11 @@
 [
     {
-        "task": "Pour concrete",
+        "task": "Install alarm bells",
         "location": "Reykjavik",
-        "company": "OSByggingar",
+        "company": "JLLausnir",
         "requested_start": "2025-06-18T09:00:00",
         "requested_end": "2025-06-18T12:00:00",
-        "reason": "gleymdi",
+        "reason": "sda",
         "status": "pending"
     }
 ]

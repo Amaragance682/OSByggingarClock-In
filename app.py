@@ -168,6 +168,7 @@ class RequestFormFrame(tk.Frame):
         data = {
             "task": self.task_var.get(),
             "location": LOCATION,
+            "company": user["company"],
             "requested_start": requested_start,
             "requested_end": requested_end,
             "reason": self.reason_text.get("1.0", "end").strip(),
@@ -248,7 +249,9 @@ class TaskFrame(tk.Frame):
 
         # Request button
         self.request_button = tk.Button(self.main_frame, text="Request Shift Edit", font=("Helvetica", 12), command=self.master.show_request_form)
-                
+        
+        self.logout_button = tk.Button(self, text="Log Out", font=("Helvetica", 12), command=self.master.log_out_without_clocking_out)
+        self.logout_button.pack(side="bottom", pady=10)
 
     # Prepares the task selection screen after login. Sets welcome text, task options, and updates UI (clocked-in status).
     def reset(self):

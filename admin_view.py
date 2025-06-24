@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import ttk
+import json
+from tkinter import ttk, messagebox
 import os
 from datetime import datetime, timedelta
 from utils import (
@@ -13,6 +14,7 @@ from utils import (
 )
 
 COMPANY_FOLDER = "Fyrirtaeki"
+REQUESTS_FOLDER = "requests"
 
 class AdminApp(tk.Tk):
     def __init__(self):
@@ -43,9 +45,37 @@ class AdminApp(tk.Tk):
             btn.pack(side="left", padx=10, pady=5)
             self.nav_buttons[name] = btn
 
+    def save_status_change(self, filepath, employee, req_obj, new_status):
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                requests = json.load(f)
+
+            # Update the matching request
+            for r in requests:
+                if r == req_obj:
+                    r["status"] = new_status
+                    break
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(requests, f, indent=2)
+
+            tk.messagebox.showinfo("Saved", f"Status for {employee}'s request updated to '{new_status}'.")
+            self.show_request_page()
+
+        except Exception as e:
+            tk.messagebox.showerror("Error", f"Could not save status:\n{e}")
+
+    def format_time_readable(self, iso_str):
+        try:
+            return datetime.fromisoformat(iso_str).strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            return "Invalid or Missing Time"
+    
     def switch_page(self, name):
         if name == "Shift Viewer":
             self.show_shift_viewer()
+        elif name == "Handle Requests":
+            self.show_handle_requests()
         else:
             self.clear_main_area()
             placeholder = tk.Label(self.main_area, text=f"{name} page coming soon...", font=("Helvetica", 16))
@@ -187,6 +217,54 @@ class AdminApp(tk.Tk):
 
         self.display_shifts(active, finished)
 
+    def show_handle_requests(self):
+        self.clear_main_area()
+
+        request_canvas = tk.Canvas(self.main_area, bg="#f4f4f4", highlightthickness=0)
+        scrollbar = tk.Scrollbar(self.main_area, orient="vertical", command=request_canvas.yview)
+        request_canvas.configure(yscrollcommand=scrollbar.set)
+
+        request_canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        request_frame = tk.Frame(request_canvas, bg="#f4f4f4")
+        request_canvas.create_window((0, 0), window=request_frame, anchor="nw")
+
+        # Set scrollregion whenever the frame size changes
+        request_frame.bind("<Configure>", lambda e: request_canvas.configure(scrollregion=request_canvas.bbox("all")))
+
+        for i in range(5):
+            request_frame.grid_columnconfigure(i, weight=1, uniform="requests")
+
+        current_index = 0  # total cards placed
+
+        for company in os.listdir(REQUESTS_FOLDER):
+            company_path = os.path.join(REQUESTS_FOLDER, company)
+            if not os.path.isdir(company_path):
+                continue
+
+            for filename in os.listdir(company_path):
+                if filename.endswith("_requests.json"):
+                    employee_name = filename.replace("_requests.json", "")
+                    filepath = os.path.join(company_path, filename)
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        try:
+                            requests = json.load(f)
+                        except json.JSONDecodeError:
+                            continue
+
+                        for req in requests:
+                            col = current_index % 5
+                            row = current_index // 5
+                            card = self.create_request_card(request_frame, employee_name, req, company, filepath)
+                            card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+                            current_index += 1
+ 
+        # After all widgets are added, update scrollregion:
+        request_frame.update_idletasks()
+        request_canvas.config(scrollregion=request_canvas.bbox("all"))
+
+
     def display_shifts(self, active, finished):
         container = tk.Frame(self.shift_frame, bg="#e0e0e0", bd=2, relief="groove")
         container.pack(padx=15, pady=10, fill="both", expand=True)
@@ -230,6 +308,199 @@ class AdminApp(tk.Tk):
         tk.Label(frame, text=f"{duration}", font=("Helvetica", 11, "italic"), bg="white", fg="gray").pack(anchor="w")
 
         return frame
+
+    def create_request_card(self, parent, employee, req, company, filepath):
+        frame = tk.LabelFrame(parent, text=f"📝 Request from {employee}", bg="white", font=("Helvetica", 12, "bold"), padx=10, pady=5)
+        finalize_btn = tk.Button(frame, text="Finalize", command=lambda: self.finalize_request(req, employee, company, filepath))
+        finalize_btn.pack(pady=5)
+
+        # Status management
+        def update_status(event):
+            new_status = status_var.get().lower()
+            req["status"] = new_status
+            update_request_file()
+            update_status_color()
+
+        def update_request_file():
+            with open(filepath, 'r', encoding='utf-8') as f:
+                all_requests = json.load(f)
+
+            for r in all_requests:
+                if r.get("requested_start") == req.get("requested_start") and r.get("requested_end") == req.get("requested_end"):
+                    r.update(req)  # Update with modified fields
+                    break
+
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(all_requests, f, indent=4)
+
+        def update_status_color():
+            status_color = {
+                "pending": "#ffa500",
+                "approved": "#28a745",
+                "rejected": "#dc3545"
+            }.get(req.get("status", "pending").lower(), "gray")
+            status_label.config(fg=status_color)
+
+        def edit_request():
+            edit_win = tk.Toplevel(self)
+            edit_win.title("Edit Request")
+            edit_win.geometry("400x350")
+
+            tk.Label(edit_win, text="Location:").pack()
+            location_var = tk.StringVar(value=req.get("location", ""))
+            location_dropdown = ttk.Combobox(edit_win, textvariable=location_var, state="readonly")
+            location_dropdown['values'] = sorted(list(self.task_config.keys()))
+            location_dropdown.pack()
+
+            tk.Label(edit_win, text="Task:").pack()
+            task_var = tk.StringVar(value=req.get("task", ""))
+            task_dropdown = ttk.Combobox(edit_win, textvariable=task_var, state="readonly")
+            task_dropdown.pack()
+
+            def update_tasks(*args):
+                loc = location_var.get()
+                task_list = self.task_config.get(loc, {}).get(company, [])
+                task_dropdown['values'] = sorted(task_list)
+                if task_var.get() not in task_list:
+                    task_var.set("")  # Clear invalid selection
+
+            # Bind location changes to update tasks
+            location_var.trace_add("write", update_tasks)
+            update_tasks()  # Initial load based on current location
+
+            # Remaining fields
+            def make_field(label, key):
+                tk.Label(edit_win, text=label).pack()
+                entry = tk.Entry(edit_win)
+                entry.insert(0, req.get(key, ""))
+                entry.pack()
+                return entry
+
+            start_entry = make_field("Start Time (YYYY-MM-DDTHH:MM:SS)", "requested_start")
+            end_entry = make_field("End Time (YYYY-MM-DDTHH:MM:SS)", "requested_end")
+            reason_entry = make_field("Reason", "reason")
+
+            def save_changes():
+                req["location"] = location_var.get()
+                req["task"] = task_var.get()
+                req["requested_start"] = start_entry.get()
+                req["requested_end"] = end_entry.get()
+                req["reason"] = reason_entry.get()
+
+                update_request_file()
+                messagebox.showinfo("Updated", "Request updated successfully.")
+                edit_win.destroy()
+                self.show_handle_requests()
+
+            tk.Button(edit_win, text="Save", command=save_changes).pack(pady=10)
+
+        # Status widgets
+        status_label = tk.Label(frame, text=f"Status:", font=("Helvetica", 11, "bold"), bg="white", anchor="w")
+        status_label.pack(anchor="w")
+        status_var = tk.StringVar(value=req.get("status", "pending").capitalize())
+        status_dropdown = ttk.Combobox(frame, textvariable=status_var, state="readonly", values=["Pending", "Approved", "Rejected"])
+        status_dropdown.pack(anchor="w")
+        status_dropdown.bind("<<ComboboxSelected>>", update_status)
+        update_status_color()
+
+        # Other fields
+        tk.Label(frame, text=f"Reason: {req.get('reason', 'N/A')}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
+        tk.Label(frame, text=f"Company: {req.get('company', 'N/A')}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
+        tk.Label(frame, text=f"Location: {req.get('location', 'N/A')}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
+        tk.Label(frame, text=f"Task: {req.get('task', 'N/A')}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
+        tk.Label(frame, text=f"Start: {self.format_time_readable(req.get('requested_start'))}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
+        tk.Label(frame, text=f"End: {self.format_time_readable(req.get('requested_end'))}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
+
+        # Buttons
+        btn_frame = tk.Frame(frame, bg="white")
+        btn_frame.pack(pady=5, anchor="w")
+
+        tk.Button(btn_frame, text="Edit", command=edit_request).pack(side="left", padx=5)
+
+        return frame
+            
+    def finalize_request(self, req, employee, company, filepath):
+
+        def parse_dt(s):
+            try:
+                return datetime.fromisoformat(s)
+            except:
+                return None
+    
+
+        if req["status"].lower() != "approved":
+            messagebox.showwarning("Not Approved", "Only approved requests can be finalized.")
+            return
+
+        log_path = os.path.join("Fyrirtaeki", company, f"{employee}.json")
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+        new_start = parse_dt(req["requested_start"])
+        new_end = parse_dt(req["requested_end"])
+        if not new_start or not new_end:
+            messagebox.showerror("Error", "Invalid date format in request.")
+            return
+
+        new_entry = {
+            "task": req["task"],
+            "location": req["location"],
+            "clock_in": req["requested_start"],
+            "clock_out": req["requested_end"]
+        }
+
+        try:
+            logs = []
+            if os.path.exists(log_path):
+                with open(log_path, "r", encoding="utf-8") as f:
+                    logs = json.load(f)
+
+            filtered_logs = []
+            conflicts = []
+
+            for log in logs:
+                old_start = parse_dt(log.get("clock_in"))
+                old_end = parse_dt(log.get("clock_out"))
+                if not old_start or not old_end:
+                    filtered_logs.append(log)
+                    continue
+
+                # ❗ Check for overlap
+                if old_start < new_end and old_end > new_start:
+                    conflicts.append(log)
+                else:
+                    filtered_logs.append(log)
+
+            if conflicts:
+                print(f"[INFO] Found {len(conflicts)} conflicting shift(s). Replacing with request.")
+                # Optionally log the removed ones
+                for c in conflicts:
+                    print(f"[REMOVED] {c['clock_in']} to {c['clock_out']}")
+
+            # ✅ Add new entry
+            filtered_logs.append(new_entry)
+
+            with open(log_path, "w", encoding="utf-8") as f:
+                json.dump(filtered_logs, f, indent=4, ensure_ascii=False)
+
+        except Exception as e:
+            messagebox.showerror("File Error", f"Could not process {log_path}:\n{e}")
+            return
+
+        # 🧹 Remove request
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                all_requests = json.load(f)
+            all_requests = [r for r in all_requests if not (
+                r.get("requested_start") == req.get("requested_start") and
+                r.get("requested_end") == req.get("requested_end")
+            )]
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(all_requests, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            messagebox.showerror("File Error", f"Could not update request file:\n{e}")
+
+        messagebox.showinfo("Success", f"Finalized request and replaced {len(conflicts)} conflicting shift(s).")
+        self.show_handle_requests()
 
 if __name__ == "__main__":
     app = AdminApp()
