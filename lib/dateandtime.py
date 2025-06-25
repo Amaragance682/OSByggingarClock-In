@@ -1,4 +1,5 @@
 import tkinter as tk
+from datetime import datetime
 from tkinter import ttk
 from tkcalendar import Calendar
 from datetime import date
@@ -23,7 +24,6 @@ class DateEntry(tk.Frame):
 
         self.floating_entry = Calendar(self.popup, textvariable=self.date_var, date_pattern="y-mm-dd")
         self.floating_entry.pack()
-        self.floating_entry.bind("<<CalendarSelected>>", self._date_selected)
 
     def _handle_lost_focus(self, event):
         focused_widget = self.focus_get()
@@ -46,12 +46,12 @@ class DateEntry(tk.Frame):
             self._collapse_calendar()
         else:
             self._show_calendar()
-    
-    def _date_selected(self, event):
-        print("sigma")
 
     def get_date(self):
         return self.date_var.get()
+
+    def set_date(self, date):
+        self.floating_entry.selection_set(date)
 
 class DateAndTime(tk.Frame):
     def __init__(self, master):
@@ -65,7 +65,7 @@ class DateAndTime(tk.Frame):
         self.time.addAll(constants.HOURS24)
         self.time.pack(side="right")
 
-    def get_iso(self):
+    def get(self):
         hours = self.time.hours24()
         if len(str(hours)) == 1:
             hours = f"0{hours}"
@@ -73,8 +73,15 @@ class DateAndTime(tk.Frame):
         if len(str(minutes)) == 1:
             minutes = f"0{minutes}"
         s = f"{hours}:{minutes}"
-        return f"{self.date.get_date()} {s}"
+        return f"{self.date.get_date()}T{s}"
 
+    def insert(self, _, iso):
+        dt = datetime.fromisoformat(iso)
+        self.date.set_date(dt)
+        self.time._24HrsTime.delete(0, "end")
+        self.time._24HrsTime.insert(0, f"{dt.hour:02}")
+        self.time._minutes.delete(0, "end")
+        self.time._minutes.insert(0, f"{dt.minute:02}")
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -85,8 +92,9 @@ if __name__ == "__main__":
 
     dateandtime = DateAndTime(cont)
     dateandtime.pack()
+    dateandtime.insert(0, "2024-08-12T16:30")
 
-    button = tk.Button(cont, text="get time", command=lambda: print(dateandtime.get_iso()))
+    button = tk.Button(cont, text="get time", command=lambda: print(dateandtime.get()))
     button.pack()
 
     root.mainloop()

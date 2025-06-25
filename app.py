@@ -1,8 +1,7 @@
 import tkinter as tk
-from test import DateAndTime
+from lib.dateandtime import DateAndTime
 from tktimepicker import SpinTimePickerOld, constants
 import os
-from test import DateEntry
 import json
 from datetime import datetime
 from tkinter import messagebox, ttk
@@ -164,8 +163,8 @@ class RequestFormFrame(tk.Frame):
     def submit_request(self):
         user = self.master.user
         try:
-            requested_start = datetime.strptime(self.start_entry.get_iso(), "%Y-%m-%d %H:%M").isoformat()
-            requested_end = datetime.strptime(self.end_entry.get_iso(), "%Y-%m-%d %H:%M").isoformat()
+            requested_start = self.start_entry.get()
+            requested_end = self.end_entry.get()
         except ValueError:
             messagebox.showerror("Invalid Time Format", "Please use YYYY-MM-DD HH:MM format for both start and end.")
             return
