@@ -1,4 +1,5 @@
 import tkinter as tk
+from lib.dateandtime import DateAndTime
 import json
 from tkinter import ttk, messagebox
 import os
@@ -369,18 +370,18 @@ class AdminApp(tk.Tk):
             update_tasks()  # Initial load based on current location
 
             # Remaining fields
-            def make_field(label, key):
+            def make_field(label, key, entry):
                 tk.Label(edit_win, text=label).pack()
-                entry = tk.Entry(edit_win)
                 entry.insert(0, req.get(key, ""))
                 entry.pack()
                 return entry
 
-            start_entry = make_field("Start Time (YYYY-MM-DDTHH:MM:SS)", "requested_start")
-            end_entry = make_field("End Time (YYYY-MM-DDTHH:MM:SS)", "requested_end")
-            reason_entry = make_field("Reason", "reason")
+            start_entry = make_field("Start Time", "requested_start", DateAndTime(edit_win))
+            end_entry = make_field("End Time", "requested_end", DateAndTime(edit_win))
+            reason_entry = make_field("Reason", "reason", tk.Entry(edit_win))
 
             def save_changes():
+                print(end_entry.get())
                 req["location"] = location_var.get()
                 req["task"] = task_var.get()
                 req["requested_start"] = start_entry.get()
