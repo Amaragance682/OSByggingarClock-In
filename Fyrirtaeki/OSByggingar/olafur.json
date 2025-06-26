@@ -46,5 +46,23 @@
         "location": "Reykjavik",
         "clock_in": "2025-06-24T15:23:00",
         "clock_out": "2025-06-24T15:23:00"
+    },
+    {
+        "task": "Pour concrete",
+        "location": "Reykjavik",
+        "clock_in": "2025-06-26T02:05",
+        "clock_out": "2025-06-26T02:06"
+    },
+    {
+        "task": "Pour concrete",
+        "location": "Reykjavik",
+        "clock_in": "2025-06-26T09:00",
+        "clock_out": "2025-06-26T17:00"
+    },
+    {
+        "task": "Pour concrete",
+        "location": "Reykjavik",
+        "clock_in": "2025-06-26T04:00",
+        "clock_out": "2025-06-26T06:00"
     }
 ]

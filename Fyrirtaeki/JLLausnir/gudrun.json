@@ -4,5 +4,11 @@
         "location": "Reykjavik",
         "clock_in": "2025-06-19T14:32:00",
         "clock_out": "2025-06-19T14:53:00"
+    },
+    {
+        "task": "Install alarm bells",
+        "location": "Reykjavik",
+        "clock_in": "2025-06-18T09:00:00",
+        "clock_out": "2025-06-18T12:00:00"
     }
 ]

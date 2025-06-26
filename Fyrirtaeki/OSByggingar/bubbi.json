@@ -16,5 +16,17 @@
         "location": "Akureyri",
         "clock_in": "2025-06-20T10:23:00",
         "clock_out": "2025-06-24T14:59:00"
+    },
+    {
+        "task": "Lay bricks",
+        "location": "Reykjavik",
+        "clock_in": "2025-06-18T09:00:00",
+        "clock_out": "2025-06-18T12:00:00"
+    },
+    {
+        "task": "Pour concrete",
+        "location": "Reykjavik",
+        "clock_in": "2025-06-26T01:00",
+        "clock_out": "2025-06-26T08:00"
     }
 ]

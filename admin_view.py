@@ -11,7 +11,11 @@ from utils import (
     now_trimmed,
     format_duration,
     get_locations_for_user,
-    get_tasks_for_user
+    get_tasks_for_user,
+    save_employee_logs,
+    get_employee_log_path,
+    get_user_by_pin,
+    is_clocked_in,
 )
 
 COMPANY_FOLDER = "Fyrirtaeki"
@@ -308,27 +312,151 @@ class AdminApp(tk.Tk):
 
         tk.Label(frame, text=f"{duration}", font=("Helvetica", 11, "italic"), bg="white", fg="gray").pack(anchor="w")
 
-        return frame
+        btn_frame = tk.Frame(frame, bg="white")
+        btn_frame.pack(anchor="w", pady=5)
 
+        tk.Button(btn_frame, text="Edit", command=lambda: self.edit_shift(uid, clock_in)).pack(side="left", padx=5)
+
+        if active:
+            tk.Button(btn_frame, text="End Shift", command=lambda: self.end_shift(uid, clock_in)).pack(side="left", padx=5)
+
+        tk.Button(btn_frame, text="Delete", command=lambda: self.delete_shift(uid, clock_in)).pack(side="left", padx=5)
+
+        return frame
+    
+    def edit_shift(self, user_id, clock_in_time):
+        user = next((u for u in self.users if u["id"] == user_id), None)
+        if not user:
+            return messagebox.showerror("Error", "User not found.")
+
+        logs = load_employee_logs(user)
+        target = next((log for log in logs if log["clock_in"] == clock_in_time), None)
+        if not target:
+            return messagebox.showerror("Error", "Shift not found.")
+
+        win = tk.Toplevel(self)
+        win.title("Edit Shift")
+        win.geometry("350x400")
+
+        loc_var = tk.StringVar(value=target.get("location", ""))
+        task_var = tk.StringVar(value=target.get("task", ""))
+        in_var = tk.StringVar(value=target.get("clock_in", ""))
+        out_var = tk.StringVar(value=target.get("clock_out", ""))
+
+        tk.Label(win, text="Location").pack()
+        loc_dropdown = ttk.Combobox(win, textvariable=loc_var, values=list(self.task_config.keys()))
+        loc_dropdown.pack()
+
+        tk.Label(win, text="Task").pack()
+        task_dropdown = ttk.Combobox(win, textvariable=task_var)
+        task_dropdown.pack()
+
+        def update_tasks(*args):
+            loc = loc_var.get()
+            company = user["company"]
+            tasks = self.task_config.get(loc, {}).get(company, [])
+            task_dropdown["values"] = tasks
+            if task_var.get() not in tasks:
+                task_var.set("")
+        loc_var.trace_add("write", update_tasks)
+        update_tasks()
+
+        for label, var in [("Clock In (ISO)", in_var), ("Clock Out (ISO)", out_var)]:
+            tk.Label(win, text=label).pack()
+            tk.Entry(win, textvariable=var).pack()
+
+        def save_changes():
+            target["location"] = loc_var.get()
+            target["task"] = task_var.get()
+            target["clock_in"] = in_var.get()
+            target["clock_out"] = out_var.get()
+            save_employee_logs(user, logs)
+            messagebox.showinfo("Saved", "Shift updated.")
+            win.destroy()
+            self.refresh_shifts()
+
+        tk.Button(win, text="Save", command=save_changes).pack(pady=10)
+
+    def end_shift(self, user_id, clock_in_time):
+        user = next((u for u in self.users if u["id"] == user_id), None)
+        if not user:
+            return
+
+        logs = load_employee_logs(user)
+        for log in logs:
+            if log["clock_in"] == clock_in_time and not log.get("clock_out"):
+                log["clock_out"] = now_trimmed()
+                break
+        else:
+            return messagebox.showinfo("Notice", "Shift already ended.")
+
+        save_employee_logs(user, logs)
+        self.refresh_shifts()
+
+    def delete_shift(self, user_id, clock_in_time):
+        user = next((u for u in self.users if u["id"] == user_id), None)
+        if not user:
+            return
+
+        if not messagebox.askyesno("Confirm", "Are you sure you want to delete this shift?"):
+            return
+
+        logs = load_employee_logs(user)
+        logs = [log for log in logs if log["clock_in"] != clock_in_time]
+        save_employee_logs(user, logs)
+        self.refresh_shifts()
+    def remove_request(self, req, filepath):
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                all_requests = json.load(f)
+            all_requests = [
+                r for r in all_requests
+                if r.get("requested_start") != req.get("requested_start") or r.get("requested_end") != req.get("requested_end")
+            ]
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(all_requests, f, indent=4, ensure_ascii=False)
+            messagebox.showinfo("Deleted", "Request successfully removed.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to remove request:\n{e}")
+            
     def create_request_card(self, parent, employee, req, company, filepath):
         frame = tk.LabelFrame(parent, text=f"📝 Request from {employee}", bg="white", font=("Helvetica", 12, "bold"), padx=10, pady=5)
-        finalize_btn = tk.Button(frame, text="Finalize", command=lambda: self.finalize_request(req, employee, company, filepath))
+        orig_start = req.get("requested_start")
+        orig_end = req.get("requested_end")
+        
+        def handle_finalize_click():
+            status = req.get("status", "").lower()
+            if status == "approved":
+                self.finalize_request(req, employee, company, filepath)
+            elif status == "rejected":
+                confirm = messagebox.askyesno("Confirm Removal", f"Are you sure you want to delete the request from {employee}?")
+                if confirm:
+                    self.remove_request(req, filepath)
+                    self.show_handle_requests()
+            else:
+                messagebox.showwarning("Pending", "Please approve or reject the request before proceeding.")
+
+
+        btn_label = "Finalize" if req.get("status", "").lower() == "approved" else "Remove" if req.get("status", "").lower() == "rejected" else "Finalize"
+        finalize_btn = tk.Button(frame, text=btn_label, command=handle_finalize_click)
+
         finalize_btn.pack(pady=5)
 
         # Status management
         def update_status(event):
             new_status = status_var.get().lower()
             req["status"] = new_status
-            update_request_file()
+            update_request_file(orig_start, orig_end)
             update_status_color()
+            finalize_btn.config(text="Finalize" if new_status == "approved" else "Remove" if new_status == "rejected" else "Finalize")
 
-        def update_request_file():
+        def update_request_file(orig_start, orig_end):
             with open(filepath, 'r', encoding='utf-8') as f:
                 all_requests = json.load(f)
 
             for r in all_requests:
-                if r.get("requested_start") == req.get("requested_start") and r.get("requested_end") == req.get("requested_end"):
-                    r.update(req)  # Update with modified fields
+                if r.get("requested_start") == orig_start and r.get("requested_end") == orig_end:
+                    r.update(req)
                     break
 
             with open(filepath, 'w', encoding='utf-8') as f:
@@ -343,6 +471,8 @@ class AdminApp(tk.Tk):
             status_label.config(fg=status_color)
 
         def edit_request():
+            original_start = req.get("requested_start")
+            original_end = req.get("requested_end")
             edit_win = tk.Toplevel(self)
             edit_win.title("Edit Request")
             edit_win.geometry("400x350")
@@ -381,19 +511,20 @@ class AdminApp(tk.Tk):
             reason_entry = make_field("Reason", "reason", tk.Entry(edit_win))
 
             def save_changes():
-                print(end_entry.get())
                 req["location"] = location_var.get()
                 req["task"] = task_var.get()
                 req["requested_start"] = start_entry.get()
                 req["requested_end"] = end_entry.get()
                 req["reason"] = reason_entry.get()
 
-                update_request_file()
+                update_request_file(original_start, original_end)
                 messagebox.showinfo("Updated", "Request updated successfully.")
                 edit_win.destroy()
                 self.show_handle_requests()
 
             tk.Button(edit_win, text="Save", command=save_changes).pack(pady=10)
+
+
 
         # Status widgets
         status_label = tk.Label(frame, text=f"Status:", font=("Helvetica", 11, "bold"), bg="white", anchor="w")
@@ -421,13 +552,11 @@ class AdminApp(tk.Tk):
         return frame
             
     def finalize_request(self, req, employee, company, filepath):
-
         def parse_dt(s):
             try:
                 return datetime.fromisoformat(s)
             except:
                 return None
-    
 
         if req["status"].lower() != "approved":
             messagebox.showwarning("Not Approved", "Only approved requests can be finalized.")
@@ -449,6 +578,8 @@ class AdminApp(tk.Tk):
             "clock_out": req["requested_end"]
         }
 
+        conflicts = []  # <-- Initialize here
+
         try:
             logs = []
             if os.path.exists(log_path):
@@ -456,7 +587,6 @@ class AdminApp(tk.Tk):
                     logs = json.load(f)
 
             filtered_logs = []
-            conflicts = []
 
             for log in logs:
                 old_start = parse_dt(log.get("clock_in"))
@@ -465,7 +595,7 @@ class AdminApp(tk.Tk):
                     filtered_logs.append(log)
                     continue
 
-                # ❗ Check for overlap
+                # Check for overlap
                 if old_start < new_end and old_end > new_start:
                     conflicts.append(log)
                 else:
@@ -473,11 +603,10 @@ class AdminApp(tk.Tk):
 
             if conflicts:
                 print(f"[INFO] Found {len(conflicts)} conflicting shift(s). Replacing with request.")
-                # Optionally log the removed ones
                 for c in conflicts:
                     print(f"[REMOVED] {c['clock_in']} to {c['clock_out']}")
 
-            # ✅ Add new entry
+            # Add new entry
             filtered_logs.append(new_entry)
 
             with open(log_path, "w", encoding="utf-8") as f:
@@ -487,7 +616,7 @@ class AdminApp(tk.Tk):
             messagebox.showerror("File Error", f"Could not process {log_path}:\n{e}")
             return
 
-        # 🧹 Remove request
+        # Remove the request
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 all_requests = json.load(f)
@@ -502,6 +631,7 @@ class AdminApp(tk.Tk):
 
         messagebox.showinfo("Success", f"Finalized request and replaced {len(conflicts)} conflicting shift(s).")
         self.show_handle_requests()
+
 
 if __name__ == "__main__":
     app = AdminApp()
