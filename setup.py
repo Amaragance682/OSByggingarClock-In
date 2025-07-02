@@ -9,7 +9,8 @@ setup(
     install_requires=[
         "Pillow>=10.0.0",
         "openpyxl>=3.1.2",
-        "tktimepicker @ git+https://github.com/noklam/tktimepicker.git"
+        "tktimepicker @ git+https://github.com/noklam/tktimepicker.git",
+        "appdirs>=1.4.4"
     ],
     entry_points={
         'console_scripts': [

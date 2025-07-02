@@ -21,7 +21,7 @@ TASK_FILE = resource_path("Database/task_config.json")  # Path to task configura
 # Load user definitions from users.json
 def load_users(filename=None):
     if filename is None:
-        filename = USER_FILE
+        filename = resource_path(os.path.join('Database', 'users.json'))
     print(f"Loading users from: {filename}")  # debug
     with open(filename, 'r', encoding='utf-8') as f:
         return json.load(f)
