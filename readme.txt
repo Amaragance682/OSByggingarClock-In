@@ -1,2 +1,0 @@
-fakju oli
-tf???!!!
