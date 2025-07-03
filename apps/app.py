@@ -23,21 +23,17 @@ from lib.utils import (
 
 # !!!CHANGE THIS TO CURRENT LOCATION OF THE LAPTOP!!!
 # ==================================================#
-LOCATION = "Reykjavik"
+LOCATION = "Reykjavíkuvegur 60, 220 Hafnafjörður"
 # ==================================================#
 
+def get_incomplete_tasks(task_config, company, location):
+    """
+    Return a list of task‐names for this company+location
+    whose 'completed' flag is False.
+    """
+    all_tasks = task_config.get(location, {}).get(company, [])
+    return [t["name"] for t in all_tasks if not t.get("completed", False)]
 
-if hasattr(sys, '_MEIPASS'):
-    print("Running in PyInstaller bundle")
-    base_path = sys._MEIPASS
-    database_path = os.path.join(base_path, 'Database')
-    print("Database path:", database_path)
-    print("Files in Database:")
-    for root, dirs, files in os.walk(database_path):
-        for name in files:
-            print(os.path.relpath(os.path.join(root, name), base_path))
-else:
-    print("Running in dev environment")
 
 users = load_users()
 
@@ -209,7 +205,7 @@ class RequestFormFrame(tk.Frame):
             
     def update_task_dropdown(self, event=None):
         user = self.master.user
-        tasks = get_tasks_for_user(user, LOCATION, self.task_config)
+        tasks = get_incomplete_tasks(self.task_config, user["company"], LOCATION)
 
         self.task_var.set("")
         self.task_dropdown.set("")
@@ -224,7 +220,7 @@ class RequestFormFrame(tk.Frame):
     # LOADS TASKS, RESETS DROPDOWNS, CLEARS REASON TEXT, START AND END ENTRIES AND SHIFT EDIT REQUEST SCREEN
     def reset(self):
         user = self.master.user
-        tasks = get_tasks_for_user(user, LOCATION, self.task_config)
+        tasks = get_incomplete_tasks(self.task_config, user["company"], LOCATION)
 
         self.task_dropdown["values"] = tasks
         self.task_var.set("")
@@ -422,7 +418,7 @@ class TaskFrame(tk.Frame):
 
     def update_task_dropdown(self, *args):
         user = self.master.user
-        tasks = get_tasks_for_user(user, LOCATION, self.task_config)
+        tasks = get_incomplete_tasks(self.task_config, user["company"], LOCATION)
 
         self.task_var.set("")
         self.task_dropdown.set("")
