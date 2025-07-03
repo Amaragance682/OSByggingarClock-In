@@ -1,14 +1,248 @@
 {
-  "Reykjavik": {
-    "OSByggingar": ["Pour concrete", "Lay bricks"],
-    "rafverk": ["Change lightbulbs", "Wire breaker panel"],
-    "malverk": ["Paint ceiling", "Remove graffiti"],
-    "JLLausnir": ["Install door hinge on office", "Install alarm bells"]
+  "Eyravegur 28-30, Selfoss": {
+    "OS Byggingar": [
+      {
+        "name": "Aðstöðusköpun, rekstur og stjórnun",
+        "completed": false
+      }
+    ],
+    "Loftorka Reykjavik": [
+      {
+        "name": "Lóð og stæði, frágangur í verklok",
+        "completed": false
+      },
+      {
+        "name": "Grunnlagnir, gröftur og fyllingar",
+        "completed": false
+      }
+    ],
+    "JL Lausnir": [
+      {
+        "name": "Gluggar og frontar",
+        "completed": false
+      },
+      {
+        "name": "Utanhúsklæðning",
+        "completed": false
+      },
+      {
+        "name": "Handrið og flóttastigar",
+        "completed": false
+      },
+      {
+        "name": "Hurðir, innréttingar, fataskápar ofl.",
+        "completed": false
+      },
+      {
+        "name": "Milliveggir",
+        "completed": false
+      },
+      {
+        "name": "Gólfefni",
+        "completed": false
+      }
+    ],
+    "Takgg": [
+      {
+        "name": "Burðavirkni, sökklar og botnplata",
+        "completed": false
+      },
+      {
+        "name": "Gluggar og frontar",
+        "completed": false
+      },
+      {
+        "name": "Handrið og flóttastigar",
+        "completed": false
+      }
+    ],
+    "Rafakur": [
+      {
+        "name": "Raflagnir með tækjum",
+        "completed": false
+      }
+    ],
+    "Rörtönginn": [
+      {
+        "name": "Pípulagnir með tækjum",
+        "completed": false
+      }
+    ],
+    "Blikklausnir": [
+      {
+        "name": "Loftræsing og brunavarnir",
+        "completed": false
+      }
+    ],
+    "A1 málun": [
+      {
+        "name": "Málning",
+        "completed": false
+      }
+    ]
   },
-  "Akureyri": {
-    "OSByggingar": ["Foundation prep", "build wall", "build fence"],
-    "rafverk": ["Install lighting", "Wire outlets on house 123"],
-    "malverk": ["Paint railing on balcony", "spray the fence"],
-    "JLLausnir": ["Install windows", "Install doors"]
+  "Reykjavíkuvegur 60, 220 Hafnafjörður": {
+    "OS Byggingar": [
+      {
+        "name": "Aðstöðusköpun, rekstur og stjórnun",
+        "completed": false
+      }
+    ],
+    "Loftorka Reykjavik": [
+      {
+        "name": "Lóð og stæði, frágangur í verklok",
+        "completed": false
+      },
+      {
+        "name": "Grunnlagnir, gröftur og fyllingar",
+        "completed": false
+      }
+    ],
+    "JL Lausnir": [
+      {
+        "name": "Gluggar og frontar",
+        "completed": false
+      },
+      {
+        "name": "Utanhúsklæðning",
+        "completed": false
+      },
+      {
+        "name": "Handrið og flóttastigar",
+        "completed": false
+      },
+      {
+        "name": "Hurðir, innréttingar, fataskápar ofl.",
+        "completed": false
+      },
+      {
+        "name": "Milliveggir",
+        "completed": false
+      },
+      {
+        "name": "Gólfefni",
+        "completed": false
+      }
+    ],
+    "Takgg": [
+      {
+        "name": "Burðavirkni, sökklar og botnplata",
+        "completed": false
+      },
+      {
+        "name": "Gluggar og frontar",
+        "completed": false
+      },
+      {
+        "name": "Handrið og flóttastigar",
+        "completed": false
+      }
+    ],
+    "Rafakur": [
+      {
+        "name": "Raflagnir með tækjum",
+        "completed": false
+      }
+    ],
+    "Rörtönginn": [
+      {
+        "name": "Pípulagnir með tækjum",
+        "completed": false
+      }
+    ],
+    "Blikklausnir": [
+      {
+        "name": "Loftræsing og brunavarnir",
+        "completed": false
+      }
+    ],
+    "A1 málun": [
+      {
+        "name": "Málning",
+        "completed": false
+      }
+    ]
+  },
+  "Dalshverfi III, 230 Reykjanes": {
+    "OS Byggingar": [
+      {
+        "name": "Aðstöðusköpun, rekstur og stjórnun",
+        "completed": false
+      }
+    ],
+    "Loftorka Reykjavik": [
+      {
+        "name": "Lóð og stæði, frágangur í verklok",
+        "completed": false
+      },
+      {
+        "name": "Grunnlagnir, gröftur og fyllingar",
+        "completed": false
+      }
+    ],
+    "JL Lausnir": [
+      {
+        "name": "Gluggar og frontar",
+        "completed": false
+      },
+      {
+        "name": "Utanhúsklæðning",
+        "completed": false
+      },
+      {
+        "name": "Handrið og flóttastigar",
+        "completed": false
+      },
+      {
+        "name": "Hurðir, innréttingar, fataskápar ofl.",
+        "completed": false
+      },
+      {
+        "name": "Milliveggir",
+        "completed": false
+      },
+      {
+        "name": "Gólfefni",
+        "completed": false
+      }
+    ],
+    "Takgg": [
+      {
+        "name": "Burðavirkni, sökklar og botnplata",
+        "completed": false
+      },
+      {
+        "name": "Gluggar og frontar",
+        "completed": false
+      },
+      {
+        "name": "Handrið og flóttastigar",
+        "completed": false
+      }
+    ],
+    "Rafakur": [
+      {
+        "name": "Raflagnir með tækjum",
+        "completed": false
+      }
+    ],
+    "Rörtönginn": [
+      {
+        "name": "Pípulagnir með tækjum",
+        "completed": false
+      }
+    ],
+    "Blikklausnir": [
+      {
+        "name": "Loftræsing og brunavarnir",
+        "completed": false
+      }
+    ],
+    "A1 málun": [
+      {
+        "name": "Málning",
+        "completed": false
+      }
+    ]
   }
 }
