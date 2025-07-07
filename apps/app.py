@@ -306,8 +306,8 @@ class TaskFrame(tk.Frame):
 
 
         # Container box
-        self.container = tk.Frame(self, bg="#f0f0f0", bd=0, relief="flat", padx=20, pady=20)
-        self.container.pack(expand=True, pady=20)
+        self.container = tk.Frame(self, bg="#f0f0f0", bd=0, relief="flat", padx=5, pady=5)
+        self.container.pack(expand=True, pady=5)
         
         # Load task config
         self.task_config = load_task_config()
