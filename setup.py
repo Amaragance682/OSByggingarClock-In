@@ -10,7 +10,14 @@ setup(
         "Pillow>=10.0.0",
         "openpyxl>=3.1.2",
         "tktimepicker @ git+https://github.com/noklam/tktimepicker.git",
-        "appdirs>=1.4.4"
+        "appdirs>=1.4.4",
+        "tk",  # Tkinter (note: for some environments, this is included with Python)
+        "pyinstaller>=6.0.0",  # For packaging as executable
+        "pystray>=0.19.4",     # For system tray integration
+        "pywin32>=306; platform_system=='Windows'",  # Windows-specific features
+        "pyqt5>=5.15.9",       # If any Qt GUIs are used
+        "requests>=2.31.0",    # For HTTP requests
+        "python-dotenv>=1.0.0" # For .env config files
     ],
     entry_points={
         'console_scripts': [
