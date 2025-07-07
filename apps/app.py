@@ -301,13 +301,13 @@ class TaskFrame(tk.Frame):
 
 
         # clock buttons
-        self.clock_in_img = ImageTk.PhotoImage(Image.open(resource_path("Resources/clockIn.png")).resize((120, 120)))
-        self.clock_out_img = ImageTk.PhotoImage(Image.open(resource_path("Resources/stopButton.jpg")).resize((120, 120)))
+        self.clock_in_img = ImageTk.PhotoImage(Image.open(resource_path("Resources/clockIn.png")).resize((90, 90)))
+        self.clock_out_img = ImageTk.PhotoImage(Image.open(resource_path("Resources/stopButton.jpg")).resize((90, 90)))
 
 
         # Container box
         self.container = tk.Frame(self, bg="#f0f0f0", bd=0, relief="flat", padx=5, pady=5)
-        self.container.pack(expand=True, pady=5)
+        self.container.pack(fill="x", pady=5)
         
         # Load task config
         self.task_config = load_task_config()
