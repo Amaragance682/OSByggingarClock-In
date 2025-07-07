@@ -1,0 +1,77 @@
+todo:
+
+-make all info in English/Icelandic
+-add all real data to the database
+
+
+Locations:
+
+Eyravegur 28-30, Selfoss
+Reykjavíkuvegur 60, 220 Hafnafjörður
+Dalshverfi III, 230 Reykjanes
+
+
+Companies:
+
+OS Byggingar  -Managing company
+Loftorka Reyk -outside work mostly, concrete and external infrastructure
+JL Lausnir    -building company/general work
+Takgg         -similar to JL lausnir, will share some tasks that will be reported as different
+Rörtöngin     -Plumbers
+Rafakur       -Electricians
+Blikklausnir  -Metalwork
+A1 málun      -Painters
+
+
+
+Tasks: (!!!Location and company specific!!!)
+
+
+(General Tasks => tasks that apply to all applicable places where company is working, for example if A1 malun is working in selfoss and hafnafjordur but not Reykjanes, the task will appear in both selfoss and hafnafjordur and will be treated as individual tasks in the final exported excel spreadsheet.)
+
+OS Byggingar:
+-General Tasks:
+--Aðstöðusköpun, rekstur og stjórnun
+
+
+Loftorka Reykjavík:
+-General Tasks:
+--Lóð og stæði, frágangur í verklok
+--Grunnlagnir, gröftur og fyllingar
+
+
+JL Lausnir:
+-General Tasks:
+--Gluggar og frontar (shared)
+--Utanhúsklæðning 
+--Handrið og flóttastigar (shared)
+--Hurðir, innréttingar, fataskápar ofl.
+--Milliveggir
+--Gólfefni
+
+
+Takgg:
+-General Tasks:
+--Burðavirkni, sökklar og botnplata
+--Gluggar og frontar (shared)
+--Handrið og flóttastigar (shared)
+
+
+Rörtönginn:
+-General Tasks:
+--Pípulagnir með tækjum
+
+
+Rafakur:
+-General Tasks:
+--Raflagnir með tækjum
+
+
+Blikklausnir:
+-General Tasks:
+--Loftræsing og brunavarnir
+
+
+A1 málun:
+-General Tasks:
+--Málning

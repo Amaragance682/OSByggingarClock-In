@@ -23,21 +23,17 @@ from lib.utils import (
 
 # !!!CHANGE THIS TO CURRENT LOCATION OF THE LAPTOP!!!
 # ==================================================#
-LOCATION = "Reykjavik"
+LOCATION = "Reykjavíkuvegur 60, 220 Hafnafjörður"
 # ==================================================#
 
+def get_incomplete_tasks(task_config, company, location):
+    """
+    Return a list of task‐names for this company+location
+    whose 'completed' flag is False.
+    """
+    all_tasks = task_config.get(location, {}).get(company, [])
+    return [t["name"] for t in all_tasks if not t.get("completed", False)]
 
-if hasattr(sys, '_MEIPASS'):
-    print("Running in PyInstaller bundle")
-    base_path = sys._MEIPASS
-    database_path = os.path.join(base_path, 'Database')
-    print("Database path:", database_path)
-    print("Files in Database:")
-    for root, dirs, files in os.walk(database_path):
-        for name in files:
-            print(os.path.relpath(os.path.join(root, name), base_path))
-else:
-    print("Running in dev environment")
 
 users = load_users()
 
@@ -47,7 +43,7 @@ class ShiftClockApp(tk.Tk):
         self.request_frame = RequestFormFrame(self)
         self.configure(bg="#e6f0fa")  # light blueish background
         self.title("Shift Clock System")
-        self.geometry("500x800")
+        self.geometry("500x650")
 
         self.user = None
 
@@ -90,18 +86,18 @@ class LoginFrame(tk.Frame):
         super().__init__(master)
         try:
             image = Image.open(resource_path("Resources/logo.png"))
-            image = image.resize((500,300))  
+            image = image.resize((400,240))  
             self.photo = ImageTk.PhotoImage(image)
             self.image_label = tk.Label(self, image=self.photo)
-            self.image_label.pack(pady=10)
+            self.image_label.pack(pady=5)
         except Exception as e:
             print(f"Error loading image: {e}")
 
-        tk.Label(self, text="Enter PIN", font=("Helvetica", 16)).pack(pady=20)
+        tk.Label(self, text="Enter PIN", font=("Helvetica", 16)).pack(pady=10)
 
         self.pin_var = tk.StringVar()
         self.entry = tk.Entry(self, textvariable=self.pin_var, font=("Helvetica", 14), show="*", justify="center")
-        self.entry.pack(pady=10)
+        self.entry.pack(pady=5)
         self.entry.focus()
         self.entry.bind("<Return>", self.check_pin)
 
@@ -209,7 +205,7 @@ class RequestFormFrame(tk.Frame):
             
     def update_task_dropdown(self, event=None):
         user = self.master.user
-        tasks = get_tasks_for_user(user, LOCATION, self.task_config)
+        tasks = get_incomplete_tasks(self.task_config, user["company"], LOCATION)
 
         self.task_var.set("")
         self.task_dropdown.set("")
@@ -224,7 +220,7 @@ class RequestFormFrame(tk.Frame):
     # LOADS TASKS, RESETS DROPDOWNS, CLEARS REASON TEXT, START AND END ENTRIES AND SHIFT EDIT REQUEST SCREEN
     def reset(self):
         user = self.master.user
-        tasks = get_tasks_for_user(user, LOCATION, self.task_config)
+        tasks = get_incomplete_tasks(self.task_config, user["company"], LOCATION)
 
         self.task_dropdown["values"] = tasks
         self.task_var.set("")
@@ -319,19 +315,19 @@ class TaskFrame(tk.Frame):
 
         try:
             image = Image.open(resource_path("Resources/logo.png"))
-            image = image.resize((500,300))  # Adjust size as needed
+            image = image.resize((400,240))  # Adjust size as needed
             self.photo = ImageTk.PhotoImage(image)
             self.image_label = tk.Label(self.container, image=self.photo)  # ✅ this is correct
-            self.image_label.pack(pady=10)
+            self.image_label.pack(pady=5)
         except Exception as e:
             print(f"Error loading image: {e}")
             
 
         self.company_label = tk.Label(self, text="", font=("Helvetica", 16, "italic"))
-        self.company_label.pack(pady=(0, 10))
+        self.company_label.pack(pady=(0, 5))
 
         self.welcome_label = tk.Label(self, text="", font=("Helvetica", 12, "italic"))
-        self.welcome_label.pack(pady=(0, 10))
+        self.welcome_label.pack(pady=(0, 5))
 
         self.main_frame = tk.Frame(self)
         self.main_frame.pack(expand=True)
@@ -339,7 +335,7 @@ class TaskFrame(tk.Frame):
         # Task controls
         self.task_controls_frame = tk.Frame(self.main_frame)
         self.task_label = tk.Label(self.task_controls_frame, text="Select Task", font=("Helvetica", 14))
-        self.task_label.pack(pady=(10, 0))
+        self.task_label.pack(pady=(5, 0))
         self.task_dropdown = ttk.Combobox(self.task_controls_frame, textvariable=self.task_var, state="disabled", font=("Helvetica", 12))
         self.task_dropdown.pack(pady=5)
 
@@ -385,7 +381,7 @@ class TaskFrame(tk.Frame):
         clocked_in = is_clocked_in(user)
 
         if not clocked_in:
-            self.task_controls_frame.pack(pady=10)
+            self.task_controls_frame.pack(pady=5)
             print("User is not clocked in, showing task selection.")
         else:
             print("User is clocked in.")
@@ -397,7 +393,7 @@ class TaskFrame(tk.Frame):
             self.clock_button.config(image=self.clock_in_img)
 
         # Repack elements
-        self.status_label.pack(pady=10)
+        self.status_label.pack(pady=5)
         self.clock_button.pack(pady=5)
         self.request_button.pack(pady=5)
 
@@ -422,7 +418,7 @@ class TaskFrame(tk.Frame):
 
     def update_task_dropdown(self, *args):
         user = self.master.user
-        tasks = get_tasks_for_user(user, LOCATION, self.task_config)
+        tasks = get_incomplete_tasks(self.task_config, user["company"], LOCATION)
 
         self.task_var.set("")
         self.task_dropdown.set("")
