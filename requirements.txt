@@ -1,0 +1,10 @@
+Pillow>=10.0.0
+openpyxl>=3.1.2
+tktimepicker @ git+https://github.com/noklam/tktimepicker.git
+appdirs>=1.4.4
+pyinstaller>=6.0.0
+pystray>=0.19.4
+pywin32>=306; platform_system=='Windows'
+pyqt5>=5.15.9
+requests>=2.31.0
+python-dotenv>=1.0.0
