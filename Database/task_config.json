@@ -86,6 +86,10 @@
       {
         "name": "Aðstöðusköpun, rekstur og stjórnun",
         "completed": false
+      },
+      {
+        "name": "Hjálpa norsku gröfurunum",
+        "completed": false
       }
     ],
     "Loftorka Reykjavik": [
@@ -167,6 +171,14 @@
     "OS Byggingar": [
       {
         "name": "Aðstöðusköpun, rekstur og stjórnun",
+        "completed": false
+      },
+      {
+        "name": "Tölvuvinna/Appþróun",
+        "completed": false
+      },
+      {
+        "name": "útivinna",
         "completed": false
       }
     ],

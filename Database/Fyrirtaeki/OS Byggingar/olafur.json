@@ -1,26 +1,142 @@
 [
     {
-        "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
-        "location": "Reykjav\u00edkuvegur 60, 220 Hafnafj\u00f6r\u00f0ur",
-        "clock_in": "2025-07-03T11:07:00",
-        "clock_out": "2025-07-03T11:07:00"
+        "task": "T\u00f6lvuvinna/App\u00fer\u00f3un",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-01T09:00:00",
+        "actual_start": "2025-07-01T09:00:00",
+        "commute_to": 0,
+        "actual_end": "2025-07-01T17:00:00",
+        "clock_out": "2025-07-01T18:00:00",
+        "commute_from": 0,
+        "lunch_taken": false,
+        "lunch_minutes": 60
+    },
+    {
+        "task": "T\u00f6lvuvinna/App\u00fer\u00f3un",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-02T09:00:00",
+        "actual_start": "2025-07-02T09:00:00",
+        "commute_to": 0,
+        "actual_end": "2025-07-02T18:00:00",
+        "clock_out": "2025-07-02T18:00:00",
+        "commute_from": 0
+    },
+    {
+        "task": "T\u00f6lvuvinna/App\u00fer\u00f3un",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-03T09:00:00",
+        "actual_start": "2025-07-03T09:00:00",
+        "commute_to": 0,
+        "actual_end": "2025-07-03T15:00:00",
+        "clock_out": "2025-07-03T15:00:00",
+        "commute_from": 0
+    },
+    {
+        "task": "T\u00f6lvuvinna/App\u00fer\u00f3un",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-05T12:00:00",
+        "actual_start": "2025-07-05T12:00:00",
+        "commute_to": 0,
+        "actual_end": "2025-07-05T16:00:00",
+        "clock_out": "2025-07-05T16:00:00",
+        "commute_from": 0
+    },
+    {
+        "task": "\u00fativinna",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-06T08:00:00",
+        "actual_start": "2025-07-06T08:00:00",
+        "commute_to": 0,
+        "actual_end": "2025-07-06T18:00:00",
+        "clock_out": "2025-07-06T18:00:00",
+        "commute_from": 0
+    },
+    {
+        "task": "\u00fativinna",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-07T08:00:00",
+        "actual_start": "2025-07-07T08:00:00",
+        "commute_to": 0,
+        "actual_end": "2025-07-07T18:00:00",
+        "clock_out": "2025-07-07T18:00:00",
+        "commute_from": 0
+    },
+    {
+        "task": "\u00fativinna",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-08T08:30:00",
+        "actual_start": "2025-07-08T08:30:00",
+        "commute_to": 0,
+        "actual_end": "2025-07-08T18:30:00",
+        "clock_out": "2025-07-08T18:30:00",
+        "commute_from": 0
+    },
+    {
+        "task": "\u00fativinna",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-09T10:00:00",
+        "actual_start": "2025-07-09T10:00:00",
+        "commute_to": 0,
+        "actual_end": "2025-07-09T18:00:00",
+        "clock_out": "2025-07-09T18:00:00",
+        "commute_from": 0
+    },
+    {
+        "task": "\u00fativinna",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-10T08:00:00",
+        "actual_start": "2025-07-10T08:00:00",
+        "commute_to": 0,
+        "actual_end": "2025-07-10T18:00:00",
+        "clock_out": "2025-07-10T18:00:00",
+        "commute_from": 0
+    },
+    {
+        "task": "T\u00f6lvuvinna/App\u00fer\u00f3un",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-11 08:00:00",
+        "clock_out": "2025-07-11 12:00:00"
     },
     {
         "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
-        "location": "Reykjav\u00edkuvegur 60, 220 Hafnafj\u00f6r\u00f0ur",
-        "clock_in": "2025-07-03T11:21:00",
-        "clock_out": "2025-07-03T11:21:00"
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-17T08:03:00",
+        "clock_out": "2025-07-17T18:06:00",
+        "lunch_minutes": 20,
+        "lunch_taken": true
+    },
+    {
+        "task": "T\u00f6lvuvinna/App\u00fer\u00f3un",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-18T15:06:00",
+        "commute": 25,
+        "lunch_taken": false,
+        "lunch_minutes": 0,
+        "clock_out": "2025-07-18T15:07:00"
+    },
+    {
+        "task": "T\u00f6lvuvinna/App\u00fer\u00f3un",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-18T15:14:00",
+        "commute": 25,
+        "lunch_taken": false,
+        "lunch_minutes": 0,
+        "clock_out": "2025-07-18T15:14:00"
     },
     {
         "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
-        "location": "Reykjav\u00edkuvegur 60, 220 Hafnafj\u00f6r\u00f0ur",
-        "clock_in": "2025-07-03T11:30:00",
-        "clock_out": "2025-07-05T11:12:00"
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-18T15:18:00",
+        "commute": 25,
+        "lunch_taken": false,
+        "lunch_minutes": 0,
+        "clock_out": "2025-07-18T15:24:00"
     },
     {
+        "clock_in": "2025-07-18T17:24:00",
+        "clock_out": "2025-07-18T23:24:00",
         "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
-        "location": "Reykjav\u00edkuvegur 60, 220 Hafnafj\u00f6r\u00f0ur",
-        "clock_in": "2025-07-07T10:01:00",
-        "clock_out": "2025-07-07T10:01:00"
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "lunch_minutes": 10
     }
 ]

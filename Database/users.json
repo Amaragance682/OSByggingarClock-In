@@ -3,12 +3,16 @@
     "id": "olafur",
     "name": "Ólafur Sær",
     "company": "OS Byggingar",
-    "pin": "0001"
+    "pin": "0001",
+    "commute_minutes": 25,
+    "lunch_minutes": 30
   },
   {
-    "id": "david",
-    "name": "david",
-    "company": "Rafakur",
-    "pin": "0023"
+    "id": "jonni",
+    "name": "johann",
+    "company": "OS Byggingar",
+    "pin": "0003",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
   }
 ]

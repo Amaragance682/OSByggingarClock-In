@@ -1,7 +1,8 @@
 import tkinter as tk
 from lib.dateandtime import DateAndTime
+from collections import defaultdict
 import json
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import os
 import sys
 from datetime import datetime, timedelta
@@ -25,8 +26,12 @@ REQUESTS_FOLDER = resource_path("Database/Requests")
 class AdminApp(tk.Tk):
     def __init__(self):
         super().__init__()
+
+        screen_width = self.winfo_screenwidth() - 60
+        screen_height = self.winfo_screenheight() - 100
+        self.geometry(f"{screen_width}x{screen_height}+0+0")
+                
         self.title("Admin View – Employee Shift Monitor")
-        self.geometry("1000x700")
         self.configure(bg="#f4f4f4")
 
         self.users = load_users()
@@ -127,6 +132,12 @@ class AdminApp(tk.Tk):
         self.task_dropdown.pack(side="left", padx=5)
         self.task_dropdown.bind("<<ComboboxSelected>>", self.refresh_shifts)
 
+        # after you pack your dropdowns, add:
+        tk.Button(filter_frame, text="Add Shift",
+                  font=("Helvetica",11),
+                  command=self.add_shift) \
+          .pack(side="right", padx=10)
+
         self.shift_canvas = tk.Canvas(self.main_area, bg="#f4f4f4", highlightthickness=0)
         self.shift_scrollbar = tk.Scrollbar(self.main_area, orient="vertical", command=self.shift_canvas.yview)
         self.shift_canvas.configure(yscrollcommand=self.shift_scrollbar.set)
@@ -138,6 +149,96 @@ class AdminApp(tk.Tk):
         self.shift_frame.bind("<Configure>", lambda e: self.shift_canvas.configure(scrollregion=self.shift_canvas.bbox("all")))
 
         self.refresh_shifts()
+
+    def add_shift(self):
+        win = tk.Toplevel(self)
+        win.title("Add Shift")
+        win.geometry("400x250")
+
+        # 1) USER
+        tk.Label(win, text="User:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
+        user_var = tk.StringVar()
+        user_names = [u["name"] for u in self.users]
+        user_cb  = ttk.Combobox(win, textvariable=user_var, values=user_names, state="readonly")
+        user_cb.grid( row=0, column=1, sticky="w", padx=5, pady=5)
+
+        # 2) LOCATION
+        tk.Label(win, text="Location:").grid(row=1, column=0, sticky="e", padx=5, pady=5)
+        loc_var = tk.StringVar()
+        loc_cb  = ttk.Combobox(win, textvariable=loc_var, state="readonly")
+        loc_cb.grid( row=1, column=1, sticky="w", padx=5, pady=5)
+
+        # 3) TASK
+        tk.Label(win, text="Task:").grid(row=2, column=0, sticky="e", padx=5, pady=5)
+        task_var = tk.StringVar()
+        task_cb  = ttk.Combobox(win, textvariable=task_var, state="readonly")
+        task_cb.grid( row=2, column=1, sticky="w", padx=5, pady=5)
+
+        # 4) CLOCK‑IN / OUT / LUNCH...
+        tk.Label(win, text="Clock‑in (YYYY-MM-DD HH:MM):").grid(row=3, column=0, sticky="e", padx=5)
+        in_var = tk.StringVar(value=now_trimmed())
+        tk.Entry(win, textvariable=in_var).grid(row=3, column=1, sticky="w", padx=5)
+
+        tk.Label(win, text="Clock‑out (YYYY-MM-DD HH:MM):").grid(row=4, column=0, sticky="e", padx=5)
+        out_var = tk.StringVar(value=now_trimmed())
+        tk.Entry(win, textvariable=out_var).grid(row=4, column=1, sticky="w", padx=5)
+
+        tk.Label(win, text="Lunch (min):").grid(row=5, column=0, sticky="e", padx=5)
+        lunch_var = tk.StringVar(value="0")
+        tk.Entry(win, textvariable=lunch_var, width=5).grid(row=5, column=1, sticky="w", padx=5)
+
+        # —–––––––––––––––––––––––––––––––––––––––––––
+        # When the user changes, we repopulate Location & Task
+        def on_user_change(*_):
+            name = user_var.get()
+            user = next(u for u in self.users if u["name"]==name)
+
+            # all locations where that company has tasks
+            locs = sorted(self.task_config.keys())
+            loc_cb["values"] = locs
+
+            # also pre‑select first location
+            if locs:
+                loc_var.set(locs[0])
+                on_loc_change()
+
+        def on_loc_change(*_):
+            name = user_var.get()
+            user = next(u for u in self.users if u["name"]==name)
+            company = user["company"]
+            loc = loc_var.get()
+
+            # pull tasks for that location+company
+            raw = self.task_config.get(loc, {}).get(company, [])
+            names = [t["name"] if isinstance(t, dict) else t for t in raw]
+            task_cb["values"] = sorted(names)
+            if names:
+                task_var.set(names[0])
+
+        user_cb.bind("<<ComboboxSelected>>", on_user_change)
+        loc_cb .bind("<<ComboboxSelected>>", on_loc_change)
+
+        # OK / Cancel
+        btnf = tk.Frame(win)
+        btnf.grid(row=6, column=0, columnspan=2, pady=10)
+        tk.Button(btnf, text="OK",     command=lambda: self._save_new_shift(win, user_var, loc_var, task_var, in_var, out_var, lunch_var)).pack(side="left", padx=5)
+        tk.Button(btnf, text="Cancel", command=win.destroy).pack(side="left")
+
+    def _save_new_shift(self, win, user_var, loc_var, task_var, in_var, out_var, lunch_var):
+        user = next(u for u in self.users if u["name"] == user_var.get())
+        entry = {
+            "clock_in":     in_var.get(),
+            "clock_out":    out_var.get(),
+            "task":         task_var.get(),
+            "location":     loc_var.get(),
+            "lunch_minutes": int(lunch_var.get())
+        }
+        logs = load_employee_logs(user)
+        logs.append(entry)
+        save_employee_logs(user, logs)
+        win.destroy()
+        self.refresh_shifts()
+
 
     def on_location_selected(self, event=None):
         self.company_var.set("Any")
@@ -153,83 +254,100 @@ class AdminApp(tk.Tk):
                 if os.path.isdir(os.path.join(COMPANY_FOLDER, name))]
 
     def refresh_shifts(self, event=None):
-        for widget in self.shift_frame.winfo_children():
-            widget.destroy()
+        # 1) clear existing cards
+        for w in self.shift_frame.winfo_children():
+            w.destroy()
 
-        company = self.company_var.get()
-        location = self.location_var.get()
-        task_filter = self.task_var.get()
-        time_range = self.time_range_var.get()
+        # 2) grab filter settings
+        loc_filter   = self.location_var.get()
+        comp_filter  = self.company_var.get()
+        task_filter  = self.task_var.get()
+        time_range   = self.time_range_var.get()
 
+        # 3) compute date window
         today = datetime.now().date()
-        if time_range == "Today":
-            start_date = today
-        elif time_range == "Last 3 Days":
-            start_date = today - timedelta(days=2)
-        elif time_range == "Last 7 Days":
-            start_date = today - timedelta(days=6)
-        elif time_range == "Last 30 Days":
-            start_date = today - timedelta(days=29)
-        else:
-            start_date = today
+        if   time_range=="Today":      start_date = today
+        elif time_range=="Last 3 Days":  start_date = today - timedelta(days=2)
+        elif time_range=="Last 7 Days":  start_date = today - timedelta(days=6)
+        elif time_range=="Last 30 Days": start_date = today - timedelta(days=29)
+        else:                          start_date = today
 
-        users = [u for u in self.users if (company == "Any" or u["company"] == company)]
+        # 4) always drive the dropdowns from the in‑memory config
+        cfg = self.task_config
+
+        # Locations dropdown = every location in config
+        all_locs = sorted(cfg.keys())
+        self.location_dropdown['values'] = ["Any"] + all_locs
+
+        # Companies dropdown = 
+        if loc_filter!="Any":
+            comps = sorted(cfg.get(loc_filter, {}).keys())
+        else:
+            # union of every company across locations
+            comps = sorted({c for sub in cfg.values() for c in sub.keys()})
+        self.company_dropdown['values'] = ["Any"] + comps
+
+        # Tasks dropdown =
+        tasks_set = set()
+        if loc_filter!="Any" and comp_filter!="Any":
+            # exactly that slice
+            raw = cfg.get(loc_filter, {}).get(comp_filter, [])
+            tasks_set = { t["name"] if isinstance(t, dict) else t for t in raw }
+        elif loc_filter!="Any":  # any company at that location
+            for raw in cfg.get(loc_filter, {}).values():
+                tasks_set |= { t["name"] if isinstance(t, dict) else t for t in raw }
+        elif comp_filter!="Any":  # that company across all locations
+            for locmap in cfg.values():
+                raw = locmap.get(comp_filter, [])
+                tasks_set |= { t["name"] if isinstance(t, dict) else t for t in raw }
+        else:
+            # truly “Any”/“Any” → every task in the entire config
+            for locmap in cfg.values():
+                for raw in locmap.values():
+                    tasks_set |= { t["name"] if isinstance(t, dict) else t for t in raw }
+
+        self.task_dropdown['values'] = ["Any"] + sorted(tasks_set)
+
+        # 5) now build the two lists of shifts (active vs finished), but *still* apply the filters
+        users = [
+        u for u in self.users
+        if comp_filter=="Any" or u["company"]==comp_filter
+        ]
 
         active, finished = [], []
-        used_locations = set()
-        used_tasks = set()
-        used_companies = set()
-
-        for user in users:
-            logs = load_employee_logs(user)
-            for log in logs:
-                start_dt = datetime.fromisoformat(log["clock_in"]).date()
-                if not (start_date <= start_dt <= today):
+        for u in users:
+            for log in load_employee_logs(u):
+                dt = datetime.fromisoformat(log["clock_in"]).date()
+                if not (start_date <= dt <= today):
                     continue
-                used_locations.add(log.get("location"))
-                used_tasks.add(log.get("task"))
-                used_companies.add(user["company"])
-
-                if location != "Any" and log.get("location") != location:
+                if loc_filter!="Any" and log.get("location")!=loc_filter:
                     continue
-                if task_filter != "Any" and log.get("task") != task_filter:
+                if task_filter!="Any" and log.get("task")!=task_filter:
                     continue
 
                 end = log.get("clock_out")
-                duration = format_duration(log["clock_in"], now_trimmed(), ongoing=True) if end is None else format_duration(log["clock_in"], end)
-                shift_data = (user["name"], user["id"], log["task"], log["location"], log["clock_in"], end, duration)
-                (active if end is None else finished).append(shift_data)
+                duration = (
+                    format_duration(log["clock_in"], now_trimmed(), ongoing=True)
+                    if end is None
+                    else format_duration(log["clock_in"], end)
+                )
+                rec = {
+                    "name":          u["name"],
+                    "uid":           u["id"],
+                    "task":          log["task"],
+                    "location":      log["location"],
+                    "clock_in":      log["clock_in"],
+                    "clock_out":     end,
+                    "duration":      duration,
+                    "lunch_taken":   log.get("lunch_taken", False),
+                    "lunch_minutes": log.get("lunch_minutes", u.get("lunch_minutes",0))
+                }
+                (finished if end else active).append(rec)
 
-        filtered_locations = set()
-        filtered_companies = set()
-        filtered_tasks = set()
-
-        for loc, comps in self.task_config.items():
-            if location != "Any" and loc != location:
-                continue
-            for comp_name, tasks in comps.items():
-                if company != "Any" and comp_name != company:
-                    continue
-                filtered_locations.add(loc)
-                filtered_companies.add(comp_name)
-                for t in tasks:
-                    # handle dicts or legacy strings
-                    name = t["name"] if isinstance(t, dict) else t
-                    filtered_tasks.add(name)
-
-        self.location_dropdown['values'] = ["Any"] + sorted(filtered_locations)
-        self.company_dropdown['values']  = ["Any"] + sorted(filtered_companies)
-
-        if location != "Any" and company != "Any":
-            # pull only this location+company
-            items = self.task_config[location][company]
-            names = [t["name"] if isinstance(t, dict) else t for t in items]
-            self.task_dropdown['values'] = ["Any"] + sorted(names)
-        else:
-            self.task_dropdown['values'] = ["Any"] + sorted(filtered_tasks)
-
-        # finally re‐draw your shift cards
+        # 6) finally render
         self.display_shifts(active, finished)
+
+
 
     def show_handle_requests(self):
         self.clear_main_area()
@@ -315,30 +433,39 @@ class AdminApp(tk.Tk):
 
 
     def display_shifts(self, active, finished):
-        container = tk.Frame(self.shift_frame, bg="#e0e0e0", bd=2, relief="groove")
+        # clear & container setup
+        for w in self.shift_frame.winfo_children():
+            w.destroy()
+        container      = tk.Frame(self.shift_frame, bg="#e0e0e0", bd=2, relief="groove")
         container.pack(padx=15, pady=10, fill="both", expand=True)
-
-        active_frame = tk.Frame(container, bg="#e0e0e0")
+        active_frame   = tk.Frame(container, bg="#e0e0e0")
         finished_frame = tk.Frame(container, bg="#e0e0e0")
-        active_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        active_frame.grid(  row=0, column=0, sticky="nsew", padx=10, pady=10)
         finished_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-
         container.grid_columnconfigure(0, weight=1)
         container.grid_columnconfigure(1, weight=1)
 
+        # Currently working
         if active:
-            tk.Label(active_frame, text="Currently Working", font=("Helvetica", 14, "bold"), bg="#e0e0e0", fg="#f49301").grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=5)
+            tk.Label(active_frame, text="Currently Working",
+                     font=("Helvetica", 14, "bold"), bg="#e0e0e0", fg="#f49301")\
+              .grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=5)
             for idx, info in enumerate(active):
-                row = (idx // 2) + 1
-                col = idx % 2
-                self.make_card(info, True, active_frame).grid(row=row, column=col, padx=10, pady=5, sticky="nsew")
+                r, c = idx//2 + 1, idx%2
+                card = self.make_card(info, True,  active_frame, {})
+                card.grid(row=r, column=c, padx=10, pady=5, sticky="nsew")
 
+        # Finished shifts
         if finished:
-            tk.Label(finished_frame, text="Finished Shifts", font=("Helvetica", 14, "bold"), bg="#e0e0e0", fg="#2e7730").grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=10)
+            tk.Label(finished_frame, text="Finished Shifts",
+                     font=("Helvetica", 14, "bold"), bg="#e0e0e0", fg="#2e7730")\
+              .grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=10)
             for idx, info in enumerate(finished):
-                row = (idx // 2) + 1
-                col = idx % 2
-                self.make_card(info, False, finished_frame).grid(row=row, column=col, padx=10, pady=5, sticky="nsew")
+                r, c = idx//2 + 1, idx%2
+                card = self.make_card(info, False, finished_frame, {})
+                card.grid(row=r, column=c, padx=10, pady=5, sticky="nsew")
+
+
 
     def get_currently_working_summary(self):
         summary = {}
@@ -350,33 +477,89 @@ class AdminApp(tk.Tk):
                 summary.setdefault(comp, []).append(user["name"])
         return summary
 
-    def make_card(self, info, active=True, parent=None):
-        name, uid, task, location, clock_in, clock_out, duration = info
-        icon = "⏳" if active else "✅"
-        title = f"{icon} {name} "
+    def make_card(self, info, active=True, parent=None, adjusted_durations=None):
+        name      = info["name"]
+        uid       = info["uid"]
+        task      = info["task"]
+        location  = info["location"]
+        clock_in  = info["clock_in"]
+        clock_out = info["clock_out"]
 
-        frame = tk.LabelFrame(parent, text=title, font=("Helvetica", 12, "bold"), bg="white", padx=10, pady=5)
+        icon  = "⏳" if active else "✅"
+        title = f"{icon} {name}"
 
-        tk.Label(frame, text=f"Task: {task}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
-        tk.Label(frame, text=f"Location: {location}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
-        tk.Label(frame, text=f"Clock-in: {clock_in[11:16]}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
+        frame = tk.LabelFrame(parent, text=title,
+                              font=("Helvetica", 12, "bold"),
+                              bg="white", padx=10, pady=5)
 
+        # ── Basic info ──
+        tk.Label(frame, text=f"Task: {task}",
+                 font=("Helvetica",11), bg="white", anchor="w")\
+          .pack(anchor="w")
+        tk.Label(frame, text=f"Location: {location}",
+                 font=("Helvetica",11), bg="white", anchor="w")\
+          .pack(anchor="w")
+
+        # ── New: show date of shift ──
+        start_dt = datetime.fromisoformat(clock_in)
+        date_str = start_dt.strftime("%A, %Y-%m-%d")   # e.g. "Thursday, 2025-07-17"
+        tk.Label(frame,
+                text=f"Date: {date_str}",
+                font=("Helvetica",11,"italic"),
+                fg="gray20", bg="white", anchor="w")\
+        .pack(anchor="w", pady=(0,4))
+
+        # ── Clock‑in/out ──
+        tk.Label(frame, text=f"Clock‑in: {clock_in[11:16]}",
+                 font=("Helvetica",11), bg="white", anchor="w")\
+          .pack(anchor="w")
         if clock_out:
-            tk.Label(frame, text=f"Clock-out: {clock_out[11:16]}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
+            tk.Label(frame, text=f"Clock‑out: {clock_out[11:16]}",
+                     font=("Helvetica",11), bg="white", anchor="w")\
+              .pack(anchor="w")
 
-        tk.Label(frame, text=f"{duration}", font=("Helvetica", 11, "italic"), bg="white", fg="gray").pack(anchor="w")
+        # ── Shift summary ──
+        if not active and clock_out:
+            start_dt   = datetime.fromisoformat(clock_in)
+            end_dt     = datetime.fromisoformat(clock_out)
+            lunch_mins = info.get("lunch_minutes", 0)
 
+            total_secs = (end_dt - start_dt).total_seconds() - lunch_mins*60
+            hrs = int(total_secs // 3600)
+            mins = int((total_secs % 3600) // 60)
+
+            summary = (
+                f"Worked {start_dt.strftime('%H:%M')}–{end_dt.strftime('%H:%M')}, "
+                f"{'no lunch' if lunch_mins==0 else f'took {lunch_mins} min lunch'}, "
+                f"total: {hrs}h {mins}m"
+            )
+            tk.Label(frame, text=summary,
+                     font=("Helvetica",10,"italic"),
+                     fg="gray", bg="white")\
+              .pack(anchor="w", pady=(5,0))
+
+        # ── Button bar ──
         btn_frame = tk.Frame(frame, bg="white")
         btn_frame.pack(anchor="w", pady=5)
 
-        tk.Button(btn_frame, text="Edit", command=lambda: self.edit_shift(uid, clock_in)).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="Edit",
+                  command=lambda: self.edit_shift(uid, clock_in))\
+          .pack(side="left", padx=5)
 
         if active:
-            tk.Button(btn_frame, text="End Shift", command=lambda: self.end_shift(uid, clock_in)).pack(side="left", padx=5)
+            tk.Button(btn_frame, text="End Shift",
+                      command=lambda: self.end_shift(uid, clock_in))\
+              .pack(side="left", padx=5)
 
-        tk.Button(btn_frame, text="Delete", command=lambda: self.delete_shift(uid, clock_in)).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="Delete",
+                  command=lambda: self.delete_shift(uid, clock_in))\
+          .pack(side="left", padx=5)
 
         return frame
+
+
+
+    
     
     def edit_shift(self, user_id, clock_in_time):
         user = next((u for u in self.users if u["id"] == user_id), None)
@@ -390,40 +573,67 @@ class AdminApp(tk.Tk):
 
         win = tk.Toplevel(self)
         win.title("Edit Shift")
-        win.geometry("350x400")
+        win.geometry("350x450")
 
+        # — Location dropdown —
         loc_var = tk.StringVar(value=target.get("location", ""))
-        task_var = tk.StringVar(value=target.get("task", ""))
-        in_var = tk.StringVar(value=target.get("clock_in", ""))
-        out_var = tk.StringVar(value=target.get("clock_out", ""))
-
         tk.Label(win, text="Location").pack()
-        loc_dropdown = ttk.Combobox(win, textvariable=loc_var, values=list(self.task_config.keys()))
-        loc_dropdown.pack()
+        ttk.Combobox(win, textvariable=loc_var,
+                     values=list(self.task_config.keys())).pack()
 
+        # — Task dropdown —
+        initial_task = target.get("task", "")
+        if isinstance(initial_task, dict):
+            initial_task = initial_task.get("name", "")
+        task_var = tk.StringVar(value=initial_task)
         tk.Label(win, text="Task").pack()
-        task_dropdown = ttk.Combobox(win, textvariable=task_var)
-        task_dropdown.pack()
+        ttk.Combobox(win, textvariable=task_var).pack()
 
-        def update_tasks(*args):
+        def update_tasks(*_):
             loc = loc_var.get()
-            company = user["company"]
-            tasks = self.task_config.get(loc, {}).get(company, [])
-            task_dropdown["values"] = tasks
-            if task_var.get() not in tasks:
+            comp = user["company"]
+            items = self.task_config.get(loc, {}).get(comp, [])
+            names = [t["name"] if isinstance(t, dict) else t for t in items]
+            # repopulate
+            task_dropdown = win.children['!combobox2']
+            task_dropdown['values'] = names
+            if task_var.get() not in names:
                 task_var.set("")
+
         loc_var.trace_add("write", update_tasks)
         update_tasks()
 
-        for label, var in [("Clock In (ISO)", in_var), ("Clock Out (ISO)", out_var)]:
-            tk.Label(win, text=label).pack()
-            tk.Entry(win, textvariable=var).pack()
+        # — Clock‐in/out entries —
+        in_var  = tk.StringVar(value=target.get("clock_in",""))
+        out_var = tk.StringVar(value=target.get("clock_out",""))
+        tk.Label(win, text="Clock In (ISO)").pack()
+        tk.Entry(win, textvariable=in_var).pack()
+        tk.Label(win, text="Clock Out (ISO)").pack()
+        tk.Entry(win, textvariable=out_var).pack()
+
+        # Lunch Duration only
+        tk.Label(win, text="Lunch Duration (min):").pack()
+        lunch_dur_var = tk.StringVar(
+            value=str(target.get("lunch_minutes", user.get("lunch_minutes", 0)))
+        )
+        tk.Entry(win, textvariable=lunch_dur_var).pack(pady=(0,10))
+
 
         def save_changes():
-            target["location"] = loc_var.get()
-            target["task"] = task_var.get()
-            target["clock_in"] = in_var.get()
-            target["clock_out"] = out_var.get()
+            try:
+                lm = int(lunch_dur_var.get())
+                if lm < 0: raise ValueError
+            except ValueError:
+                return messagebox.showerror("Error","Lunch duration must be ≥ 0")
+
+            # apply edits into the shift dict
+            target["location"]      = loc_var.get()
+            target["task"]          = task_var.get()
+            target["clock_in"]      = in_var.get()
+            target["clock_out"]     = out_var.get()
+            target["lunch_minutes"] = lm
+
+            # write back to disk
             save_employee_logs(user, logs)
             messagebox.showinfo("Saved", "Shift updated.")
             win.destroy()
@@ -431,21 +641,27 @@ class AdminApp(tk.Tk):
 
         tk.Button(win, text="Save", command=save_changes).pack(pady=10)
 
-    def end_shift(self, user_id, clock_in_time):
-        user = next((u for u in self.users if u["id"] == user_id), None)
-        if not user:
-            return
 
+    def end_shift(self, user_id, clock_in_time):
+        user = next(u for u in self.users if u["id"] == user_id)
         logs = load_employee_logs(user)
         for log in logs:
             if log["clock_in"] == clock_in_time and not log.get("clock_out"):
-                log["clock_out"] = now_trimmed()
+                # Ask directly for lunch minutes (0 = no lunch)
+                lunch_mins = simpledialog.askinteger(
+                    "Lunch Duration",
+                    f"Enter lunch duration in minutes (default {user.get('lunch_minutes',0)}):",
+                    initialvalue=user.get("lunch_minutes", 0),
+                    minvalue=0
+                ) or 0
+
+                log["lunch_minutes"] = lunch_mins
+                log["clock_out"]     = now_trimmed()
                 break
-        else:
-            return messagebox.showinfo("Notice", "Shift already ended.")
 
         save_employee_logs(user, logs)
         self.refresh_shifts()
+
 
     def delete_shift(self, user_id, clock_in_time):
         user = next((u for u in self.users if u["id"] == user_id), None)
@@ -691,37 +907,50 @@ class AdminApp(tk.Tk):
         self.build_hierarchical_db_tab(self.main_area)
 
     def build_users_tab(self, parent):
-        # load fresh copy
         self.users = load_users()
 
-        # left: list of users
+        # ─────────────── left: listbox ───────────────
         listbox = tk.Listbox(parent, width=30)
         for u in self.users:
             listbox.insert("end", f"{u['id']}: {u['name']}")
-        listbox.grid(row=0, column=0, rowspan=4, sticky="ns", padx=5, pady=5)
+        listbox.grid(row=0, column=0, rowspan=6, sticky="ns", padx=5, pady=5)
 
-        # right: form fields
+        # ─────────────── right: form ───────────────
+        # ID
         tk.Label(parent, text="ID").grid(row=0, column=1, sticky="w")
         id_var = tk.StringVar()
         tk.Entry(parent, textvariable=id_var).grid(row=0, column=2, sticky="ew")
 
+        # Name
         tk.Label(parent, text="Name").grid(row=1, column=1, sticky="w")
         name_var = tk.StringVar()
         tk.Entry(parent, textvariable=name_var).grid(row=1, column=2, sticky="ew")
 
+        # Company
         tk.Label(parent, text="Company").grid(row=2, column=1, sticky="w")
         comp_var = tk.StringVar()
         comp_choices = sorted({u["company"] for u in self.users} | set(self.get_company_names()))
         ttk.Combobox(parent, textvariable=comp_var, values=comp_choices, state="readonly")\
-            .grid(row=2, column=2, sticky="ew")
+        .grid(row=2, column=2, sticky="ew")
 
+        # PIN
         tk.Label(parent, text="PIN").grid(row=3, column=1, sticky="w")
         pin_var = tk.StringVar()
         tk.Entry(parent, textvariable=pin_var).grid(row=3, column=2, sticky="ew")
 
-        # bottom: Add / Update / Delete
+        # Commute (min)
+        tk.Label(parent, text="Commute (min)").grid(row=4, column=1, sticky="w")
+        commute_var = tk.StringVar()
+        tk.Entry(parent, textvariable=commute_var).grid(row=4, column=2, sticky="ew")
+
+        # Lunch (min)
+        tk.Label(parent, text="Lunch (min)").grid(row=5, column=1, sticky="w")
+        lunch_var = tk.StringVar()
+        tk.Entry(parent, textvariable=lunch_var).grid(row=5, column=2, sticky="ew")
+
+        # ─────────────── button bar ───────────────
         btn_frame = tk.Frame(parent)
-        btn_frame.grid(row=4, column=0, columnspan=3, pady=10)
+        btn_frame.grid(row=6, column=0, columnspan=3, pady=10)
 
         def on_select(evt):
             idx = listbox.curselection()[0]
@@ -730,21 +959,48 @@ class AdminApp(tk.Tk):
             name_var.set(user["name"])
             comp_var.set(user["company"])
             pin_var.set(user["pin"])
+            commute_var.set(str(user.get("commute_minutes", 0)))
+            lunch_var.set(str(user.get("lunch_minutes", 0)))
+
         listbox.bind("<<ListboxSelect>>", on_select)
 
         def save_user():
-            new = {"id": id_var.get(), "name": name_var.get(),
-                   "company": comp_var.get(), "pin": pin_var.get()}
-            # replace if exists, else append
+            # basic presence check
+            if not (id_var.get() and name_var.get() and comp_var.get() and pin_var.get()
+                    and commute_var.get() and lunch_var.get()):
+                return messagebox.showerror("Error", "All fields required.")
+
+            # numeric validation
+            try:
+                cm = int(commute_var.get())
+                lm = int(lunch_var.get())
+                if cm < 0 or lm < 0:
+                    raise ValueError
+            except ValueError:
+                return messagebox.showerror("Error", "Commute and Lunch must be non-negative integers.")
+
+            new = {
+                "id":               id_var.get(),
+                "name":             name_var.get(),
+                "company":          comp_var.get(),
+                "pin":              pin_var.get(),
+                "commute_minutes":  cm,
+                "lunch_minutes":    lm,
+                # lunch_taken is per-shift; default to False
+                "lunch_taken":      False
+            }
+
+            # replace or append
             for i,u in enumerate(self.users):
                 if u["id"] == new["id"]:
                     self.users[i] = new
                     break
             else:
                 self.users.append(new)
-            save_users(self.users)  # you’ll have to add this in lib.utils
+
+            save_users(self.users)
             messagebox.showinfo("Saved", f"User {new['id']} saved.")
-            self.show_edit_database()  # refresh entire DB UI
+            self.show_edit_database()
 
         def delete_user():
             uid = id_var.get()
@@ -753,17 +1009,10 @@ class AdminApp(tk.Tk):
             messagebox.showinfo("Deleted", f"User {uid} removed.")
             self.show_edit_database()
 
-        tk.Button(btn_frame, text="Save User",   command=save_user  ).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="Save User",   command=save_user).pack(side="left", padx=5)
         tk.Button(btn_frame, text="Delete User", command=delete_user).pack(side="left", padx=5)
 
-    def refresh_locations(self):
-        self.task_config = load_task_config()
-        self.loc_lb.delete(0, "end")
-        for loc in self.task_config:
-            self.loc_lb.insert("end", loc)
-        # clear downstream lists:
-        self.comp_lb.delete(0, "end")
-        self.task_lb.delete(0, "end")
+
 
     def on_loc_selected(self, evt):
         sel = self.loc_lb.get(self.loc_lb.curselection())
@@ -781,6 +1030,7 @@ class AdminApp(tk.Tk):
         self.current_user = None
 
     def build_hierarchical_db_tab(self, parent):
+
         # ─ Layout ─────────────────────────────────────────────────────────────
         left  = tk.Frame(parent); left.grid(row=0, column=0, sticky="ns")
         mid   = tk.Frame(parent); mid .grid(row=0, column=1, sticky="ns")
@@ -789,7 +1039,7 @@ class AdminApp(tk.Tk):
 
         # ─ Locations ──────────────────────────────────────────────────────────
         tk.Label(left, text="Locations", font=("Helvetica", 12, "bold")).pack(pady=(5,2))
-        self.loc_lb = tk.Listbox(left, exportselection=False); self.loc_lb.pack(fill="both", expand=True)
+        self.loc_lb = tk.Listbox(left, width=40, exportselection=False); self.loc_lb.pack(fill="both", expand=True)
         tk.Button(left,  text="Add Loc",    command=self.add_location).pack(fill="x")
         tk.Button(left,  text="Edit Loc",   command=self.edit_location).pack(fill="x")
         tk.Button(left,  text="Delete Loc", command=self.delete_location).pack(fill="x")
@@ -797,7 +1047,7 @@ class AdminApp(tk.Tk):
 
         # ─ Companies ─────────────────────────────────────────────────────────
         tk.Label(mid, text="Companies", font=("Helvetica", 12, "bold")).pack(pady=(5,2))
-        self.comp_lb = tk.Listbox(mid, exportselection=False); self.comp_lb.pack(fill="both", expand=True)
+        self.comp_lb = tk.Listbox(mid, width=30, exportselection=False); self.comp_lb.pack(fill="both", expand=True)
         tk.Button(mid,  text="Add Comp",    command=self.add_company).pack(fill="x")
         tk.Button(mid,  text="Edit Comp",   command=self.edit_company).pack(fill="x")
         tk.Button(mid,  text="Delete Comp", command=self.delete_company).pack(fill="x")
@@ -805,7 +1055,7 @@ class AdminApp(tk.Tk):
 
         # ─ Tasks ─────────────────────────────────────────────────────────────
         tk.Label(right, text="Tasks", font=("Helvetica", 12, "bold")).pack(pady=(5,2))
-        self.task_lb = tk.Listbox(right, exportselection=False); self.task_lb.pack(fill="both", expand=True)
+        self.task_lb = tk.Listbox(right, width=40, exportselection=False); self.task_lb.pack(fill="both", expand=True)
         tk.Button(right, text="Add Task",    command=self.add_task).pack(fill="x")
         tk.Button(right, text="Edit Task",   command=self.edit_task).pack(fill="x")
         tk.Button(right, text="Delete Task", command=self.delete_task).pack(fill="x")
@@ -1180,66 +1430,164 @@ class AdminApp(tk.Tk):
             messagebox.showerror("Error", "Please choose a company first.")
             return
 
+        dlg = tk.Toplevel(self)
+        dlg.title(f"Add user to {comp}")
+
+        tk.Label(dlg, text="ID:").grid(row=0, column=0)
+        id_var = tk.StringVar()
+        tk.Entry(dlg, textvariable=id_var).grid(row=0, column=1)
+
+        tk.Label(dlg, text="Name:").grid(row=1, column=0)
+        name_var = tk.StringVar()
+        tk.Entry(dlg, textvariable=name_var).grid(row=1, column=1)
+
+        tk.Label(dlg, text="PIN:").grid(row=2, column=0)
+        pin_var = tk.StringVar()
+        tk.Entry(dlg, textvariable=pin_var).grid(row=2, column=1)
+
+        # — New commute field —
+        tk.Label(dlg, text="Commute (min):").grid(row=3, column=0)
+        commute_var = tk.StringVar(value="25")
+        tk.Entry(dlg, textvariable=commute_var).grid(row=3, column=1)
+
+        # — New lunch field —
+        tk.Label(dlg, text="Lunch (min):").grid(row=4, column=0)
+        lunch_var = tk.StringVar(value="30")   
+        tk.Entry(dlg, textvariable=lunch_var).grid(row=4, column=1)
+
         def on_ok():
-            uid  = id_var.get().strip()
-            name = name_var.get().strip()
-            pin  = pin_var.get().strip()
-            if not (uid and name and pin):
-                messagebox.showerror("Error", "All fields required.")
-                return
+            uid     = id_var.get().strip()
+            name    = name_var.get().strip()
+            pin     = pin_var.get().strip()
+            commute = commute_var.get().strip()
+
+            # basic presence check
+            if not (uid and name and pin and commute):
+                return messagebox.showerror("Error", "All fields required.")
+
+            # numeric check
+            try:
+                cm = int(commute)
+                if cm < 0:
+                    raise ValueError
+            except ValueError:
+                return messagebox.showerror("Error", "Commute must be a non-negative integer.")
+
             if any(u["id"] == uid for u in self.users):
-                messagebox.showerror("Error", "That ID already exists.")
-                return
-            new = {"id":uid, "name":name, "company":comp, "pin":pin}
+                return messagebox.showerror("Error", "That ID already exists.")
+
+            new = {
+                "id":               uid,
+                "name":             name,
+                "company":          comp,
+                "pin":              pin,
+                "commute_minutes":  cm,
+                "lunch_minutes":    0,  
+            }
             self.users.append(new)
             save_users(self.users)
             dlg.destroy()
             self.on_user_company_selected()
 
-        dlg = tk.Toplevel(self)
-        dlg.title(f"Add user to {comp}")
-        tk.Label(dlg, text="ID:").grid(row=0, column=0);   id_var   = tk.StringVar(); tk.Entry(dlg, textvariable=id_var).grid(row=0,column=1)
-        tk.Label(dlg, text="Name:").grid(row=1, column=0); name_var = tk.StringVar(); tk.Entry(dlg, textvariable=name_var).grid(row=1,column=1)
-        tk.Label(dlg, text="PIN:").grid(row=2, column=0);  pin_var  = tk.StringVar(); tk.Entry(dlg, textvariable=pin_var).grid(row=2,column=1)
-        tk.Button(dlg, text="OK", command=on_ok).grid(row=3, column=0, columnspan=2, pady=10)
+        # finally, add an OK button that calls on_ok:
+        tk.Button(dlg, text="OK", command=on_ok) \
+            .grid(row=5, column=0, columnspan=2, pady=10)
+
+            
+
+
 
     def edit_user(self):
-        """Popup to edit the selected user’s name and PIN."""
+        """Popup to edit the selected user’s name, PIN, commute—and now default lunch time."""
         sel = self.user_lb.curselection()
         if not sel:
             return messagebox.showerror("Error", "Select a user first.")
         text = self.user_lb.get(sel)
-        uid  = text.split(":",1)[0]
+        uid  = text.split(":", 1)[0]
         user = next(u for u in self.users if u["id"] == uid)
-
-        def on_ok():
-            new_name = name_var.get().strip()
-            new_pin  = pin_var.get().strip()
-            if not (new_name and new_pin):
-                return messagebox.showerror("Error", "All fields required.")
-            user["name"] = new_name
-            user["pin"]  = new_pin
-            save_users(self.users)
-            dlg.destroy()
-            self.on_user_company_selected()
 
         dlg = tk.Toplevel(self)
         dlg.title(f"Edit user {uid}")
-        tk.Label(dlg, text="Name:").grid(row=0,column=0); name_var = tk.StringVar(value=user["name"]); tk.Entry(dlg, textvariable=name_var).grid(row=0,column=1)
-        tk.Label(dlg, text="PIN:").grid(row=1,column=0);  pin_var  = tk.StringVar(value=user["pin"]);  tk.Entry(dlg, textvariable=pin_var).grid(row=1,column=1)
-        tk.Button(dlg, text="OK", command=on_ok).grid(row=2, column=0, columnspan=2, pady=10)
+
+        # — Name —
+        tk.Label(dlg, text="Name:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        name_var = tk.StringVar(value=user["name"])
+        tk.Entry(dlg, textvariable=name_var).grid(row=0, column=1, padx=5, pady=5)
+
+        # — PIN —
+        tk.Label(dlg, text="PIN:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        pin_var  = tk.StringVar(value=user["pin"])
+        tk.Entry(dlg, textvariable=pin_var).grid(row=1, column=1, padx=5, pady=5)
+
+        # — Commute (min) —
+        tk.Label(dlg, text="Commute (min):").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+        commute_var = tk.StringVar(value=str(user.get("commute_minutes", 0)))
+        tk.Entry(dlg, textvariable=commute_var).grid(row=2, column=1, padx=5, pady=5)
+
+        # — Lunch (min) —
+        tk.Label(dlg, text="Lunch (min):").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+        lunch_var = tk.StringVar(value=str(user.get("lunch_minutes", 0)))
+        tk.Entry(dlg, textvariable=lunch_var).grid(row=3, column=1, padx=5, pady=5)
+
+        def on_ok():
+            new_name    = name_var.get().strip()
+            new_pin     = pin_var.get().strip()
+            new_commute = commute_var.get().strip()
+            new_lunch   = lunch_var.get().strip()
+
+            # require all fields
+            if not (new_name and new_pin and new_commute and new_lunch):
+                return messagebox.showerror("Error", "All fields required.")
+
+            # validate commute and lunch are non-negative integers
+            try:
+                cm = int(new_commute)
+                lm = int(new_lunch)
+                if cm < 0 or lm < 0:
+                    raise ValueError
+            except ValueError:
+                return messagebox.showerror("Error", "Commute and Lunch must be non-negative integers.")
+
+            # apply changes
+            user["name"]            = new_name
+            user["pin"]             = new_pin
+            user["commute_minutes"] = cm
+            user["lunch_minutes"]   = lm
+
+            save_users(self.users)
+            dlg.destroy()
+            # refresh list for the current company filter
+            self.on_user_company_selected()
+
+        tk.Button(dlg, text="OK", command=on_ok)\
+          .grid(row=4, column=0, columnspan=2, pady=10)
+        
 
     def delete_user(self):
         """Delete the selected user after confirmation."""
+        # 1) Make sure a user is selected
         sel = self.user_lb.curselection()
         if not sel:
             return messagebox.showerror("Error", "Select a user first.")
-        text = self.user_lb.get(sel)
-        uid  = text.split(":",1)[0]
-        if not messagebox.askyesno("Confirm", f"Delete user {uid}?"):
+
+        # 2) Extract the user‐ID from the listbox entry
+        list_entry = self.user_lb.get(sel[0])
+        user_id = list_entry.split(":", 1)[0]
+
+        # 3) Confirm deletion
+        confirm = messagebox.askyesno(
+            "Confirm Deletion",
+            f"Are you sure you want to delete user '{user_id}'?"
+        )
+        if not confirm:
             return
-        self.users = [u for u in self.users if u["id"] != uid]
+
+        # 4) Remove from in‑memory list & save
+        self.users = [u for u in self.users if u["id"] != user_id]
         save_users(self.users)
+
+        # 5) Refresh the UI
+        messagebox.showinfo("Deleted", f"User '{user_id}' removed.")
         self.on_user_company_selected()
 
 

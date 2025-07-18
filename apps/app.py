@@ -5,9 +5,10 @@ import os
 import sys
 import json
 from datetime import datetime
-from tkinter import messagebox, ttk
+from tkinter import messagebox, ttk, simpledialog
 from PIL import Image, ImageTk
 from lib.utils import (
+    now_trimmed,
     load_users,
     get_user_by_pin,
     load_employee_logs,
@@ -23,7 +24,7 @@ from lib.utils import (
 
 # !!!CHANGE THIS TO CURRENT LOCATION OF THE LAPTOP!!!
 # ==================================================#
-LOCATION = "Reykjavíkuvegur 60, 220 Hafnafjörður"
+LOCATION = "Dalshverfi III, 230 Reykjanes"
 # ==================================================#
 
 def get_incomplete_tasks(task_config, company, location):
@@ -40,10 +41,14 @@ users = load_users()
 class ShiftClockApp(tk.Tk):
     def __init__(self):
         super().__init__()
+
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        self.geometry(f"{screen_width}x{screen_height}+0+0")
+
         self.request_frame = RequestFormFrame(self)
         self.configure(bg="#e6f0fa")  # light blueish background
         self.title("Shift Clock System")
-        self.geometry("500x650")
 
         self.user = None
 
@@ -69,12 +74,48 @@ class ShiftClockApp(tk.Tk):
 
     def clock_out_and_return(self):
         logs = load_employee_logs(self.user)
-        closed = close_last_shift(logs)
+        last = next((log for log in reversed(logs) if not log.get("clock_out")), None)
+        if not last:
+            return messagebox.showinfo("Not Clocked In", "You don't have an open shift.")
+
+        # one dialog for lunch
+        dlg = LunchDialog(self, self.user.get("lunch_minutes", 0))
+        took_lunch, lunch_mins = dlg.result
+
+        # stamp the log
+        last["lunch_taken"]   = took_lunch
+        last["lunch_minutes"] = lunch_mins
+        last["clock_out"]     = now_trimmed()
         save_employee_logs(self.user, logs)
-        msg = format_duration(closed["clock_in"], closed["clock_out"]) if closed else "Not clocked in."
-        messagebox.showinfo("Clocked Out", msg)
+
+        start = datetime.fromisoformat(last["clock_in"])
+        end   = datetime.fromisoformat(last["clock_out"])
+        total_mins = int((end - start).total_seconds() // 60)
+
+        # lunch
+        lunch = last.get("lunch_minutes", 0)
+
+        # commute round‑trip (just for info)
+        commute_rt = last.get("commute", 0) * 2
+
+        # now net paid includes commute:
+        net = max(0, total_mins + commute_rt - lunch)
+
+        def fmt(m):
+            return f"{m//60}h {m%60}m"
+
+        messagebox.showinfo(
+            "Clocked Out",
+            f"Shift time:    {fmt(total_mins)}\n"
+            f"Commute (RT):  {fmt(commute_rt)}\n"
+            f"Lunch:         {fmt(lunch)}\n"
+            f"Net paid time: {fmt(net)}"
+        )
+
+        # return to login
         self.task_frame.pack_forget()
         self.login_frame.pack()
+
 
     def log_out_without_clocking_out(self):
         self.task_frame.pack_forget()
@@ -291,6 +332,8 @@ class RequestFormFrame(tk.Frame):
 
         messagebox.showinfo("Request Submitted", "Your request has been sent.")
         self.master.back_to_task_view()
+        self.master.log_out_without_clocking_out()
+
 
 
 
@@ -411,7 +454,7 @@ class TaskFrame(tk.Frame):
                 return
             task = task.strip()
             location = location.strip()
-            logs.append(create_shift_entry(task, location))
+            logs.append(create_shift_entry(self.master.user, task, location))
             save_employee_logs(user, logs)
             messagebox.showinfo("Clocked In", f"Now working on '{task}' at '{location}'")
             self.master.log_out_without_clocking_out()  # Auto logout after clock-in
@@ -433,6 +476,78 @@ class TaskFrame(tk.Frame):
             self.task_dropdown["values"] = []
             self.task_dropdown.config(state="disabled")
 
+
+class LunchDialog(tk.Toplevel):
+    def __init__(self, parent, default_minutes):
+        super().__init__(parent)
+        self.transient(parent)
+        self.grab_set()
+        self.title("Lunch Break")
+
+        # hide until fully laid out
+        self.withdraw()
+
+        # ─── Variables ───
+        self.took_var = tk.BooleanVar(value=True)
+        self.min_var  = tk.StringVar(value=str(default_minutes))
+
+        # ─── Widgets ───
+        tk.Label(self, text="Did you take lunch today?").pack(padx=10, pady=(10,2))
+        chk = tk.Checkbutton(self, text="Yes, I took lunch", variable=self.took_var, command=self._on_toggle)
+        chk.pack(padx=10, anchor="w")
+
+        frm = tk.Frame(self)
+        frm.pack(padx=10, pady=(5,10), anchor="w")
+        tk.Label(frm, text="Lunch duration (min):").grid(row=0, column=0, sticky="w")
+        self.entry = tk.Entry(frm, textvariable=self.min_var, width=5)
+        self.entry.grid(row=0, column=1, padx=(5,0))
+
+        btnf = tk.Frame(self)
+        btnf.pack(pady=(0,10))
+        tk.Button(btnf, text="OK",     width=8, command=self._on_ok).pack(side="left", padx=5)
+        tk.Button(btnf, text="Cancel", width=8, command=self._on_cancel).pack(side="left")
+
+        # initialize entry state
+        self._on_toggle()
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+
+        # ─── Center on parent ───
+        self.update_idletasks()            # let geometry managers do their job
+        dlg_w = self.winfo_width()
+        dlg_h = self.winfo_height()
+
+        p_x = parent.winfo_rootx()
+        p_y = parent.winfo_rooty()
+        p_w = parent.winfo_width()
+        p_h = parent.winfo_height()
+
+        x = p_x + (p_w - dlg_w)//2
+        y = p_y + (p_h - dlg_h)//2
+        self.geometry(f"+{x}+{y}")
+
+        self.deiconify()                   # now show it properly
+        self.wait_window()
+
+    def _on_toggle(self):
+        state = "normal" if self.took_var.get() else "disabled"
+        self.entry.configure(state=state)
+
+    def _on_ok(self):
+        try:
+            mins = int(self.min_var.get()) if self.took_var.get() else 0
+            if mins < 0: raise ValueError
+        except ValueError:
+            messagebox.showerror("Error", "Please enter a non‑negative integer for lunch duration.")
+            return
+        self.result = (self.took_var.get(), mins)
+        self.destroy()
+
+    def _on_cancel(self):
+        self.result = (False, 0)
+        self.destroy()
+
+
+        
 # Run the app
 if __name__ == "__main__":
     app = ShiftClockApp()
