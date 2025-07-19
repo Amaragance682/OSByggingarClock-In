@@ -138,5 +138,45 @@
         "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
         "location": "Dalshverfi III, 230 Reykjanes",
         "lunch_minutes": 10
+    },
+    {
+        "task": "T\u00f6lvuvinna/App\u00fer\u00f3un",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-21T08:00",
+        "clock_out": "2025-07-21T17:00"
+    },
+    {
+        "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-07-19T14:45:00",
+        "commute": 100,
+        "lunch_taken": true,
+        "lunch_minutes": 60,
+        "clock_out": "2025-07-19T16:45:00",
+        "commute_minutes": 30
+    },
+    {
+        "clock_in": "2025-07-19T14:47:00",
+        "clock_out": "2025-07-19T16:47:00",
+        "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "lunch_minutes": 20,
+        "commute_minutes": 100
+    },
+    {
+        "clock_in": "2025-07-19T15:13:00",
+        "clock_out": "2025-07-19T16:13:00",
+        "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
+        "location": "Eyravegur 28-30, Selfoss",
+        "lunch_minutes": 20,
+        "commute_minutes": 10
+    },
+    {
+        "clock_in": "2025-07-19T15:14:00",
+        "clock_out": "2025-07-19T15:14:00",
+        "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "lunch_minutes": 100,
+        "commute_minutes": 0
     }
 ]

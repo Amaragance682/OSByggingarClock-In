@@ -127,7 +127,7 @@ def save_employee_logs(user, logs):
 def create_shift_entry(user, task, location):
     """
     Called when employee clocks in.
-    Records the real clock_in time, plus commute (one-way) in minutes.
+    Records the real clock_in time, plus commute total in minutes.
     """
     now = datetime.now().replace(second=0, microsecond=0)
     commute = int(user.get("commute_minutes", 0))
@@ -135,8 +135,7 @@ def create_shift_entry(user, task, location):
         "task":       task,
         "location":   location,
         "clock_in":   now.isoformat(),
-        "commute":    commute,           # one‑way commute
-        # we'll add lunch and clock_out later
+        "commute":    commute,
     }
 
 def close_last_shift(logs, user):

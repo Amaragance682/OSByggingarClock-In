@@ -41,6 +41,7 @@ class AdminApp(tk.Tk):
         self.location_var = tk.StringVar(value="Any")
         self.company_var = tk.StringVar(value="Any")
         self.task_var = tk.StringVar(value="Any")
+        self.user_var = tk.StringVar(value="Any")
 
         self.create_navigation()
         self.create_shift_viewer()
@@ -113,7 +114,15 @@ class AdminApp(tk.Tk):
 
         tk.Label(filter_frame, text="Time Range:").pack(side="left", padx=5)
         self.time_range_dropdown = ttk.Combobox(filter_frame, textvariable=self.time_range_var, state="readonly", width=15)
-        self.time_range_dropdown['values'] = ["Today", "Last 3 Days", "Last 7 Days", "Last 30 Days"]
+        self.time_range_dropdown['values'] = [
+            "Today",
+            "Last 3 Days",
+            "Last 7 Days",
+            "Last 30 Days",
+            "Last 3 Months",
+            "Last Year",
+            "All Time",
+        ]
         self.time_range_dropdown.pack(side="left", padx=5)
         self.time_range_dropdown.bind("<<ComboboxSelected>>", self.refresh_shifts)
 
@@ -126,6 +135,17 @@ class AdminApp(tk.Tk):
         self.company_dropdown = ttk.Combobox(filter_frame, textvariable=self.company_var, state="readonly")
         self.company_dropdown.pack(side="left", padx=5)
         self.company_dropdown.bind("<<ComboboxSelected>>", self.on_company_selected)
+
+        tk.Label(filter_frame, text="User:").pack(side="left", padx=5)
+        self.user_dropdown = ttk.Combobox(
+            filter_frame,
+            textvariable=self.user_var,
+            state="readonly",
+            width=20,
+            values=["Any"]  # will be populated when company changes
+        )
+        self.user_dropdown.pack(side="left", padx=5)
+        self.user_dropdown.bind("<<ComboboxSelected>>", self.refresh_shifts)
 
         tk.Label(filter_frame, text="Task:").pack(side="left", padx=5)
         self.task_dropdown = ttk.Combobox(filter_frame, textvariable=self.task_var, state="readonly", width=40)
@@ -158,7 +178,7 @@ class AdminApp(tk.Tk):
         # 1) USER
         tk.Label(win, text="User:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
         user_var = tk.StringVar()
-        user_names = [u["name"] for u in self.users]
+        user_names = sorted(u["name"] for u in self.users)
         user_cb  = ttk.Combobox(win, textvariable=user_var, values=user_names, state="readonly")
         user_cb.grid( row=0, column=1, sticky="w", padx=5, pady=5)
 
@@ -186,6 +206,11 @@ class AdminApp(tk.Tk):
         tk.Label(win, text="Lunch (min):").grid(row=5, column=0, sticky="e", padx=5)
         lunch_var = tk.StringVar(value="0")
         tk.Entry(win, textvariable=lunch_var, width=5).grid(row=5, column=1, sticky="w", padx=5)
+
+        tk.Label(win, text="Commute (min):").grid(row=6, column=0, sticky="e", padx=5, pady=(0,5))
+        commute_var = tk.StringVar(value="0")
+        tk.Entry(win, textvariable=commute_var, width=5).grid(row=6, column=1, sticky="w", padx=5, pady=(0,5))
+
 
         # —–––––––––––––––––––––––––––––––––––––––––––
         # When the user changes, we repopulate Location & Task
@@ -220,19 +245,23 @@ class AdminApp(tk.Tk):
 
         # OK / Cancel
         btnf = tk.Frame(win)
-        btnf.grid(row=6, column=0, columnspan=2, pady=10)
-        tk.Button(btnf, text="OK",     command=lambda: self._save_new_shift(win, user_var, loc_var, task_var, in_var, out_var, lunch_var)).pack(side="left", padx=5)
+        btnf.grid(row=7, column=0, columnspan=2, pady=10)
+        tk.Button(btnf, text="OK", command=lambda: self._save_new_shift(
+            win, user_var, loc_var, task_var, in_var, out_var, lunch_var, commute_var
+        )).pack(side="left", padx=5)
         tk.Button(btnf, text="Cancel", command=win.destroy).pack(side="left")
 
-    def _save_new_shift(self, win, user_var, loc_var, task_var, in_var, out_var, lunch_var):
+    def _save_new_shift(self, win, user_var, loc_var, task_var, in_var, out_var, lunch_var, commute_var):
         user = next(u for u in self.users if u["name"] == user_var.get())
         entry = {
             "clock_in":     in_var.get(),
             "clock_out":    out_var.get(),
             "task":         task_var.get(),
             "location":     loc_var.get(),
-            "lunch_minutes": int(lunch_var.get())
+            "lunch_minutes": int(lunch_var.get()),
+            "commute_minutes": int(commute_var.get())
         }
+
         logs = load_employee_logs(user)
         logs.append(entry)
         save_employee_logs(user, logs)
@@ -247,6 +276,15 @@ class AdminApp(tk.Tk):
 
     def on_company_selected(self, event=None):
         self.task_var.set("Any")
+        # — now repopulate the user dropdown too —
+        company = self.company_var.get()
+        names = [
+            u["name"]
+            for u in self.users
+            if company=="Any" or u["company"]==company
+        ]
+        self.user_dropdown["values"] = ["Any"] + sorted(names)
+        self.user_var.set("Any")
         self.refresh_shifts()
 
     def get_company_names(self):
@@ -261,16 +299,32 @@ class AdminApp(tk.Tk):
         # 2) grab filter settings
         loc_filter   = self.location_var.get()
         comp_filter  = self.company_var.get()
+        user_filter = self.user_var.get()
         task_filter  = self.task_var.get()
         time_range   = self.time_range_var.get()
 
         # 3) compute date window
         today = datetime.now().date()
-        if   time_range=="Today":      start_date = today
-        elif time_range=="Last 3 Days":  start_date = today - timedelta(days=2)
-        elif time_range=="Last 7 Days":  start_date = today - timedelta(days=6)
-        elif time_range=="Last 30 Days": start_date = today - timedelta(days=29)
-        else:                          start_date = today
+        # figure out our window
+        if time_range == "Today":
+            start_date = today
+        elif time_range == "Last 3 Days":
+            start_date = today - timedelta(days=2)
+        elif time_range == "Last 7 Days":
+            start_date = today - timedelta(days=6)
+        elif time_range == "Last 30 Days":
+            start_date = today - timedelta(days=29)
+        elif time_range == "Last 3 Months":
+            start_date = today - timedelta(days=90)
+        elif time_range == "Last Year":
+            start_date = today - timedelta(days=365)
+        elif time_range == "All Time":
+            # include everything
+            from datetime import date
+            start_date = date.min
+        else:
+            start_date = today
+
 
         # 4) always drive the dropdowns from the in‑memory config
         cfg = self.task_config
@@ -311,7 +365,8 @@ class AdminApp(tk.Tk):
         # 5) now build the two lists of shifts (active vs finished), but *still* apply the filters
         users = [
         u for u in self.users
-        if comp_filter=="Any" or u["company"]==comp_filter
+        if (comp_filter=="Any" or u["company"]==comp_filter)
+        and (user_filter  =="Any" or u["name"]   ==user_filter)
         ]
 
         active, finished = [], []
@@ -332,19 +387,92 @@ class AdminApp(tk.Tk):
                     else format_duration(log["clock_in"], end)
                 )
                 rec = {
-                    "name":          u["name"],
-                    "uid":           u["id"],
-                    "task":          log["task"],
-                    "location":      log["location"],
-                    "clock_in":      log["clock_in"],
-                    "clock_out":     end,
-                    "duration":      duration,
-                    "lunch_taken":   log.get("lunch_taken", False),
-                    "lunch_minutes": log.get("lunch_minutes", u.get("lunch_minutes",0))
+                    "name":            u["name"],
+                    "uid":             u["id"],
+                    "task":            log["task"],
+                    "location":        log["location"],
+                    "clock_in":        log["clock_in"],
+                    "clock_out":       end,
+                    "lunch_minutes":   log.get("lunch_minutes", u.get("lunch_minutes", 0)),
+                    # ← NEW: grab one-way commute from the log (or default user commute)
+                    "commute_minutes": log.get("commute_minutes", u.get("commute_minutes", 0))
                 }
                 (finished if end else active).append(rec)
 
+        def mark_conflict_groups(recs):
+            # bucket by (user_id, date)
+            buckets = defaultdict(list)
+            for r in recs:
+                day = r["clock_in"][:10]
+                buckets[(r["uid"], day)].append(r)
+
+            for group in buckets.values():
+                # build list of (record, start, end)
+                intervals = [
+                    (r,
+                    datetime.fromisoformat(r["clock_in"]),
+                    datetime.fromisoformat(r["clock_out"]))
+                    for r in group
+                ]
+                n = len(intervals)
+
+                # parent[i] = union‑find parent of interval i
+                parent = list(range(n))
+
+                def find(i):
+                    while parent[i] != i:
+                        parent[i] = parent[parent[i]]
+                        i = parent[i]
+                    return i
+
+                def union(i, j):
+                    ri, rj = find(i), find(j)
+                    if ri != rj:
+                        parent[rj] = ri
+
+                # link every overlapping pair
+                for i in range(n):
+                    _, s1, e1 = intervals[i]
+                    for j in range(i+1, n):
+                        _, s2, e2 = intervals[j]
+                        if s2 < e1 and s1 < e2:
+                            union(i, j)
+
+                # collect connected components
+                comps = defaultdict(list)
+                for i in range(n):
+                    root = find(i)
+                    comps[root].append(i)
+
+                # assign numbered group IDs to any comp with >1 member
+                group_id = 1
+                for comp_idxs in comps.values():
+                    if len(comp_idxs) > 1:
+                        for idx in comp_idxs:
+                            rec = intervals[idx][0]
+                            rec["conflict_group"] = group_id
+                        group_id += 1
+
+
+        # mark both active & finished
+        mark_conflict_groups(active)
+        mark_conflict_groups(finished)
+
         # 6) finally render
+        finished.sort(key=lambda info: info["clock_in"])
+        seen = set()   # will hold (uid, date) pairs
+        for rec in finished:
+            # extract YYYY‑MM‑DD from clock_in (either "2025‑07‑19 08:00" or ISO)
+            date = rec["clock_in"].split()[0]
+            key  = (rec["uid"], date)
+            if key in seen:
+                # not the first shift that day → zero out commute
+                rec["commute_minutes"] = 0
+            else:
+                seen.add(key)
+        # for any active shifts you can set commute_rt = 0 if you like,
+        # but typically you only display commute on finished shifts.
+
         self.display_shifts(active, finished)
 
 
@@ -433,9 +561,22 @@ class AdminApp(tk.Tk):
 
 
     def display_shifts(self, active, finished):
-        # clear & container setup
+        # clear old cards
         for w in self.shift_frame.winfo_children():
             w.destroy()
+
+        # if nothing to show, print “no results” and stop
+        if not active and not finished:
+            tk.Label(
+                self.shift_frame,
+                text="No results found.",
+                font=("Helvetica", 14, "italic"),
+                fg="gray50",
+                bg="#f4f4f4"
+            ).pack(pady=20)
+            return
+
+        # otherwise we have shifts → build the container
         container      = tk.Frame(self.shift_frame, bg="#e0e0e0", bd=2, relief="groove")
         container.pack(padx=15, pady=10, fill="both", expand=True)
         active_frame   = tk.Frame(container, bg="#e0e0e0")
@@ -523,20 +664,51 @@ class AdminApp(tk.Tk):
             start_dt   = datetime.fromisoformat(clock_in)
             end_dt     = datetime.fromisoformat(clock_out)
             lunch_mins = info.get("lunch_minutes", 0)
+            commute_rt = info.get("commute_minutes", 0)
 
-            total_secs = (end_dt - start_dt).total_seconds() - lunch_mins*60
-            hrs = int(total_secs // 3600)
+            # raw net seconds (could be negative)
+            raw_secs = (end_dt - start_dt).total_seconds() \
+                    + commute_rt * 60 \
+                    - lunch_mins * 60
+
+            # clamp at zero and flag negative for review
+            if raw_secs < 0:
+                total_secs = 0
+                error_flag = True
+            else:
+                total_secs = raw_secs
+                error_flag = False
+
+            hrs  = int(total_secs // 3600)
             mins = int((total_secs % 3600) // 60)
 
             summary = (
                 f"Worked {start_dt.strftime('%H:%M')}–{end_dt.strftime('%H:%M')}, "
                 f"{'no lunch' if lunch_mins==0 else f'took {lunch_mins} min lunch'}, "
+                f"commute {commute_rt} min, "
                 f"total: {hrs}h {mins}m"
             )
-            tk.Label(frame, text=summary,
-                     font=("Helvetica",10,"italic"),
-                     fg="gray", bg="white")\
-              .pack(anchor="w", pady=(5,0))
+
+            lbl = tk.Label(frame,
+                        text=summary,
+                        font=("Helvetica",10,"italic"),
+                        bg="white",
+                        anchor="w")
+            lbl.pack(anchor="w", pady=(5,0))
+
+            # show conflict if present
+            grp = info.get("conflict_group")
+            if grp is not None:
+                tk.Label(frame,
+                        text=f"⚠ Conflicting shift {grp}!",
+                        font=("Helvetica", 10, "bold"),
+                        fg="red", bg="white")\
+                .pack(anchor="w", pady=(0,4))
+            if error_flag:
+                # mark it in red so a manager can spot it
+                lbl.config(fg="red")
+                # optionally you could prepend a warning icon/text
+                # lbl.config(text="⚠ Invalid times! " + summary)
 
         # ── Button bar ──
         btn_frame = tk.Frame(frame, bg="white")
@@ -618,11 +790,20 @@ class AdminApp(tk.Tk):
         )
         tk.Entry(win, textvariable=lunch_dur_var).pack(pady=(0,10))
 
+        # ─── NEW: Commute Duration ───
+        tk.Label(win, text="Commute Duration (min):").pack()
+        commute_var = tk.StringVar(
+            value=str(target.get("commute_minutes", user.get("commute_minutes", 0)))
+        )
+        tk.Entry(win, textvariable=commute_var).pack(pady=(0,10))
+        # ─────────────────────────────
 
         def save_changes():
             try:
                 lm = int(lunch_dur_var.get())
                 if lm < 0: raise ValueError
+                cm = int(commute_var.get())
+                if cm < 0: raise ValueError
             except ValueError:
                 return messagebox.showerror("Error","Lunch duration must be ≥ 0")
 
@@ -632,6 +813,7 @@ class AdminApp(tk.Tk):
             target["clock_in"]      = in_var.get()
             target["clock_out"]     = out_var.get()
             target["lunch_minutes"] = lm
+            target["commute_minutes"] = cm
 
             # write back to disk
             save_employee_logs(user, logs)
@@ -740,59 +922,81 @@ class AdminApp(tk.Tk):
             }.get(req.get("status", "pending").lower(), "gray")
             status_label.config(fg=status_color)
 
+
+
         def edit_request():
-            original_start = req.get("requested_start")
-            original_end = req.get("requested_end")
+            original_start = req["requested_start"]
+            original_end   = req["requested_end"]
             edit_win = tk.Toplevel(self)
             edit_win.title("Edit Request")
-            edit_win.geometry("400x350")
+            edit_win.geometry("400x450")
 
+            # — Location — (you already have this)
             tk.Label(edit_win, text="Location:").pack()
             location_var = tk.StringVar(value=req.get("location", ""))
             location_dropdown = ttk.Combobox(edit_win, textvariable=location_var, state="readonly")
-            location_dropdown['values'] = sorted(list(self.task_config.keys()))
+            location_dropdown['values'] = sorted(self.task_config.keys())
             location_dropdown.pack()
 
+            # — Task — (you already have this)
             tk.Label(edit_win, text="Task:").pack()
             task_var = tk.StringVar(value=req.get("task", ""))
             task_dropdown = ttk.Combobox(edit_win, textvariable=task_var, state="readonly")
             task_dropdown.pack()
+            # … your update_tasks binding …
 
-            def update_tasks(*args):
-                loc = location_var.get()
-                task_list = self.task_config.get(loc, {}).get(company, [])
-                task_dropdown['values'] = sorted(task_list)
-                if task_var.get() not in task_list:
-                    task_var.set("")  # Clear invalid selection
+            # — Start & End — (you already have these)
+            start_entry  = DateAndTime(edit_win)
+            start_entry.insert(0, req["requested_start"])
+            tk.Label(edit_win, text="Start Time").pack()
+            start_entry.pack()
 
-            # Bind location changes to update tasks
-            location_var.trace_add("write", update_tasks)
-            update_tasks()  # Initial load based on current location
+            end_entry    = DateAndTime(edit_win)
+            end_entry.insert(0, req["requested_end"])
+            tk.Label(edit_win, text="End Time").pack()
+            end_entry.pack()
 
-            # Remaining fields
-            def make_field(label, key, entry):
-                tk.Label(edit_win, text=label).pack()
-                entry.insert(0, req.get(key, ""))
-                entry.pack()
-                return entry
+            # — Reason — (you already have this)
+            tk.Label(edit_win, text="Reason:").pack()
+            reason_entry = tk.Entry(edit_win)
+            reason_entry.insert(0, req.get("reason",""))
+            reason_entry.pack(pady=(0,10))
 
-            start_entry = make_field("Start Time", "requested_start", DateAndTime(edit_win))
-            end_entry = make_field("End Time", "requested_end", DateAndTime(edit_win))
-            reason_entry = make_field("Reason", "reason", tk.Entry(edit_win))
+            # ─── NEW: Commute & Lunch ───
+            tk.Label(edit_win, text="Commute both ways (min):").pack()
+            commute_var  = tk.StringVar(value=str(req.get("commute_minutes", 0)))
+            commute_entry = tk.Entry(edit_win, textvariable=commute_var)
+            commute_entry.pack(pady=(0,10))
+
+            tk.Label(edit_win, text="Lunch (min):").pack()
+            lunch_var    = tk.StringVar(value=str(req.get("lunch_minutes", 0)))
+            lunch_entry  = tk.Entry(edit_win, textvariable=lunch_var)
+            lunch_entry.pack(pady=(0,10))
+            # ──────────────────────────────
 
             def save_changes():
-                req["location"] = location_var.get()
-                req["task"] = task_var.get()
-                req["requested_start"] = start_entry.get()
-                req["requested_end"] = end_entry.get()
-                req["reason"] = reason_entry.get()
+                # 1) read & validate commute/lunch
+                try:
+                    req["commute_minutes"] = int(commute_var.get())
+                    req["lunch_minutes"]   = int(lunch_var.get())
+                except ValueError:
+                    return messagebox.showerror("Error", "Commute and Lunch must be integers.")
 
+                # 2) write back all the other fields
+                req["location"]        = location_var.get()
+                req["task"]            = task_var.get()
+                req["requested_start"] = start_entry.get()
+                req["requested_end"]   = end_entry.get()
+                req["reason"]          = reason_entry.get()
+
+                # 3) update the JSON file
                 update_request_file(original_start, original_end)
                 messagebox.showinfo("Updated", "Request updated successfully.")
                 edit_win.destroy()
                 self.show_handle_requests()
 
             tk.Button(edit_win, text="Save", command=save_changes).pack(pady=10)
+
 
 
 
@@ -805,13 +1009,21 @@ class AdminApp(tk.Tk):
         status_dropdown.bind("<<ComboboxSelected>>", update_status)
         update_status_color()
 
-        # Other fields
-        tk.Label(frame, text=f"Reason: {req.get('reason', 'N/A')}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
-        tk.Label(frame, text=f"Company: {req.get('company', 'N/A')}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
-        tk.Label(frame, text=f"Location: {req.get('location', 'N/A')}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
-        tk.Label(frame, text=f"Task: {req.get('task', 'N/A')}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
-        tk.Label(frame, text=f"Start: {self.format_time_readable(req.get('requested_start'))}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
-        tk.Label(frame, text=f"End: {self.format_time_readable(req.get('requested_end'))}", font=("Helvetica", 11), bg="white", anchor="w").pack(anchor="w")
+        # now including commute & lunch
+        fields = [
+        ("Reason",          req.get("reason", "N/A")),
+        ("Company",         company),
+        ("Location",        req.get("location", "N/A")),
+        ("Task",            req.get("task",     "N/A")),
+        ("Start",           self.format_time_readable(req.get("requested_start"))),
+        ("End",             self.format_time_readable(req.get("requested_end"))),
+        ("Commute (min)",   req.get("commute_minutes", 0)),
+        ("Lunch (min)",     req.get("lunch_minutes",   0)),
+        ]
+        for label, val in fields:
+            tk.Label(frame, text=f"{label}: {val}",
+                    font=("Helvetica",11), bg="white", anchor="w")\
+            .pack(anchor="w")
 
         # Buttons
         btn_frame = tk.Frame(frame, bg="white")

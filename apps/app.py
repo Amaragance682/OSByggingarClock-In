@@ -91,14 +91,21 @@ class ShiftClockApp(tk.Tk):
         start = datetime.fromisoformat(last["clock_in"])
         end   = datetime.fromisoformat(last["clock_out"])
         total_mins = int((end - start).total_seconds() // 60)
+        lunch      = last.get("lunch_minutes", 0)
 
-        # lunch
-        lunch = last.get("lunch_minutes", 0)
+        # figure out if we've already applied commute for this date
+        shift_day = start.date()
+        # look for any *other* shift on the same date that has commute_minutes > 0
+        already_commuted = any(
+            datetime.fromisoformat(log["clock_out"]).date() == shift_day and
+            log is not last and
+            log.get("commute_minutes", 0) > 0
+            for log in logs if log.get("clock_out")
+        )
 
-        # commute round‑trip (just for info)
-        commute_rt = last.get("commute", 0) * 2
+        # only apply your stored commute once
+        commute_rt = 0 if already_commuted else last.get("commute_minutes", 0)
 
-        # now net paid includes commute:
         net = max(0, total_mins + commute_rt - lunch)
 
         def fmt(m):
@@ -107,15 +114,14 @@ class ShiftClockApp(tk.Tk):
         messagebox.showinfo(
             "Clocked Out",
             f"Shift time:    {fmt(total_mins)}\n"
-            f"Commute (RT):  {fmt(commute_rt)}\n"
+            f"Commute total: {fmt(commute_rt)}\n"
             f"Lunch:         {fmt(lunch)}\n"
             f"Net paid time: {fmt(net)}"
         )
 
-        # return to login
+        # then send them back to login
         self.task_frame.pack_forget()
         self.login_frame.pack()
-
 
     def log_out_without_clocking_out(self):
         self.task_frame.pack_forget()
