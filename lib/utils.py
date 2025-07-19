@@ -1,7 +1,7 @@
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -22,9 +22,6 @@ TASK_FILE      = resource_path("Database/task_config.json")
 
 # === USER MANAGEMENT === #
 
-def load_users() -> List[Dict[str,Any]]:
-    with open(USER_FILE, encoding="utf-8") as f:
-        return json.load(f)
 
 def save_users(users: List[Dict[str,Any]]) -> None:
     with open(USER_FILE, "w", encoding="utf-8") as f:
@@ -62,9 +59,6 @@ def is_clocked_in(user):
 
 # === TASK MANAGEMENT === #
 
-def load_task_config(filename=TASK_FILE) -> Dict[str,Any]:
-    with open(filename, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 def get_locations_for_user(user: Dict[str,Any],
                            task_config: Dict[str,Any]
@@ -130,19 +124,32 @@ def save_employee_logs(user, logs):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(logs, f, indent=4)
 
-def create_shift_entry(task, location):
+def create_shift_entry(user, task, location):
+    """
+    Called when employee clocks in.
+    Records the real clock_in time, plus commute total in minutes.
+    """
+    now = datetime.now().replace(second=0, microsecond=0)
+    commute = int(user.get("commute_minutes", 0))
     return {
-        "task": task,
-        "location": location,
-        "clock_in": now_trimmed(),
-        "clock_out": None
+        "task":       task,
+        "location":   location,
+        "clock_in":   now.isoformat(),
+        "commute":    commute,
     }
 
-def close_last_shift(logs):
-    for log in reversed(logs):
-        if log["clock_out"] is None:
-            log["clock_out"] = now_trimmed()
-            return log
+def close_last_shift(logs, user):
+    """
+    Called when employee clocks out.
+    Finds the last open shift and stamps the real clock_out time,
+    preserving commute from the original entry.
+    """
+    for entry in reversed(logs):
+        if entry.get("clock_out") is None:
+            now = datetime.now().replace(second=0, microsecond=0)
+            entry["clock_out"] = now.isoformat()
+            # lunch_taken & lunch_minutes should already have been set by the UI
+            return entry
     return None
 
 
@@ -156,13 +163,17 @@ def format_time(iso):
     return dt.strftime("%b %d, %H:%M")
 
 def format_duration(start_iso, end_iso, ongoing=False):
-    start_dt = datetime.fromisoformat(start_iso)
-    end_dt   = datetime.fromisoformat(end_iso)
-    delta    = end_dt - start_dt
-    mins = int(delta.total_seconds() // 60)
-    h, m = divmod(mins, 60)
-    verb = "Working" if ongoing else "Worked"
-    return f"{verb} {h} hours and {m} minutes (from {start_dt:%H:%M} to {end_dt:%H:%M})"
+    """
+    Reports Worked Xh Ym (ignores commute entirely).
+    ongoing=True will label “Working”, else “Worked”.
+    """
+    start = datetime.fromisoformat(start_iso)
+    end   = datetime.fromisoformat(end_iso)
+    total_mins = int((end - start).total_seconds() // 60)
+    h, m      = divmod(total_mins, 60)
+    verb      = "Working" if ongoing else "Worked"
+    return f"{verb} {h}h {m}m (from {start:%H:%M} to {end:%H:%M})"
+
 
 def calc_duration(start, end):
     return str(datetime.fromisoformat(end) - datetime.fromisoformat(start))
