@@ -1,6 +1,6 @@
 [
     {
-        "task": "Aðstöðusköpun, rekstur og stjórnun",
+        "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
         "location": "Dalshverfi III, 230 Reykjanes",
         "clock_in": "2025-08-13T11:19:00",
         "commute": 100,
@@ -9,7 +9,7 @@
         "clock_out": "2025-08-13T11:19:00"
     },
     {
-        "task": "Aðstöðusköpun, rekstur og stjórnun",
+        "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
         "location": "Dalshverfi III, 230 Reykjanes",
         "clock_in": "2025-08-13T11:22:00",
         "commute": 100,
@@ -18,17 +18,20 @@
         "clock_out": "2025-08-13T11:23:00"
     },
     {
-        "task": "Aðstöðusköpun, rekstur og stjórnun",
-        "location": "Dalshverfi III, 230 Reykjanes",
-        "clock_in": "2025-08-13T11:25:00",
-        "commute": 100
-    },
-    {
         "clock_in": "2025-07-19T15:14:00",
         "clock_out": "2025-07-19T15:14:00",
         "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
         "location": "Dalshverfi III, 230 Reykjanes",
         "lunch_minutes": 100,
         "commute_minutes": 0
+    },
+    {
+        "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "clock_in": "2025-08-13T11:37:00",
+        "commute": 100,
+        "clock_out": "2025-08-13T14:37:00",
+        "lunch_minutes": 30,
+        "commute_minutes": 100
     }
 ]
