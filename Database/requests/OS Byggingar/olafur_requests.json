@@ -1,1 +1,11 @@
-[]
+[
+    {
+        "task": "Aðstöðusköpun, rekstur og stjórnun",
+        "location": "Dalshverfi III, 230 Reykjanes",
+        "company": "OS Byggingar",
+        "requested_start": "2025-07-01 08:00:00",
+        "requested_end": "2025-07-01 17:00:00",
+        "reason": "sadad",
+        "status": "pending"
+    }
+]
