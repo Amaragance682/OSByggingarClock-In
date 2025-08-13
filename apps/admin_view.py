@@ -23,6 +23,15 @@ from lib.utils import (
 COMPANY_FOLDER = resource_path("Database/Fyrirtaeki")
 REQUESTS_FOLDER = resource_path("Database/Requests")
 
+def _parse_iso(s: str):
+    """Return datetime from ISO-ish string, or None if missing/invalid."""
+    try:
+        if isinstance(s, str) and s.strip():
+            return datetime.fromisoformat(s)
+    except Exception:
+        pass
+    return None
+
 class AdminApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -372,7 +381,11 @@ class AdminApp(tk.Tk):
         active, finished = [], []
         for u in users:
             for log in load_employee_logs(u):
-                dt = datetime.fromisoformat(log["clock_in"]).date()
+                start_dt = _parse_iso(log.get("clock_in"))
+                if not start_dt:
+                    continue  # skip malformed rows
+                dt = start_dt.date()
+                
                 if not (start_date <= dt <= today):
                     continue
                 if loc_filter!="Any" and log.get("location")!=loc_filter:
@@ -403,20 +416,34 @@ class AdminApp(tk.Tk):
             # bucket by (user_id, date)
             buckets = defaultdict(list)
             for r in recs:
-                day = r["clock_in"][:10]
+                # derive the "day" only from clock_in; skip malformed entries
+                s = _parse_iso(r.get("clock_in"))
+                if not s:
+                    continue
+                day = s.strftime("%Y-%m-%d")
                 buckets[(r["uid"], day)].append(r)
 
             for group in buckets.values():
-                # build list of (record, start, end)
-                intervals = [
-                    (r,
-                    datetime.fromisoformat(r["clock_in"]),
-                    datetime.fromisoformat(r["clock_out"]))
-                    for r in group
-                ]
-                n = len(intervals)
+                intervals = []
+                now_dt = datetime.now()
+                for r in group:
+                    s = _parse_iso(r.get("clock_in"))
+                    e = _parse_iso(r.get("clock_out"))
+                    if not s:
+                        continue
+                    if e is None:
+                        # active/open shift: treat as ending now for overlap purposes
+                        e = now_dt
+                    # guard against inverted intervals
+                    if e < s:
+                        # if data is bad, swap or skip; here we skip marking to avoid false positives
+                        continue
+                    intervals.append((r, s, e))
 
-                # parent[i] = union‑find parent of interval i
+                n = len(intervals)
+                if n <= 1:
+                    continue
+
                 parent = list(range(n))
 
                 def find(i):
@@ -430,7 +457,7 @@ class AdminApp(tk.Tk):
                     if ri != rj:
                         parent[rj] = ri
 
-                # link every overlapping pair
+                # link overlapping pairs
                 for i in range(n):
                     _, s1, e1 = intervals[i]
                     for j in range(i+1, n):
@@ -438,43 +465,35 @@ class AdminApp(tk.Tk):
                         if s2 < e1 and s1 < e2:
                             union(i, j)
 
-                # collect connected components
+                # collect connected components and assign conflict_group ids
                 comps = defaultdict(list)
                 for i in range(n):
-                    root = find(i)
-                    comps[root].append(i)
+                    comps[find(i)].append(i)
 
-                # assign numbered group IDs to any comp with >1 member
                 group_id = 1
-                for comp_idxs in comps.values():
-                    if len(comp_idxs) > 1:
-                        for idx in comp_idxs:
+                for idxs in comps.values():
+                    if len(idxs) > 1:
+                        for idx in idxs:
                             rec = intervals[idx][0]
                             rec["conflict_group"] = group_id
                         group_id += 1
 
-
-        # mark both active & finished
+        # --- run conflict marking on both lists ---
         mark_conflict_groups(active)
         mark_conflict_groups(finished)
 
-        # 6) finally render
+        # --- optional: zero out commute for 2nd+ shifts same day ---
         finished.sort(key=lambda info: info["clock_in"])
-        seen = set()   # will hold (uid, date) pairs
+        seen = set()
         for rec in finished:
-            # extract YYYY‑MM‑DD from clock_in (either "2025‑07‑19 08:00" or ISO)
-            date = rec["clock_in"].split()[0]
-            key  = (rec["uid"], date)
-            if key in seen:
-                # not the first shift that day → zero out commute
+            day_key = (rec["uid"], rec["clock_in"][:10])
+            if day_key in seen:
                 rec["commute_minutes"] = 0
             else:
-                seen.add(key)
-        # for any active shifts you can set commute_rt = 0 if you like,
-        # but typically you only display commute on finished shifts.
+                seen.add(day_key)
 
+        # --- finally render ---
         self.display_shifts(active, finished)
-
 
 
     def show_handle_requests(self):
