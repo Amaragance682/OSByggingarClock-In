@@ -22,5 +22,13 @@
     "pin": "0101",
     "commute_minutes": 50,
     "lunch_minutes": 0
+  },
+  {
+    "id": "joe",
+    "name": "joeinn",
+    "company": "OS Byggingar",
+    "pin": "0002",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
   }
 ]

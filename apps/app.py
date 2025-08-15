@@ -78,52 +78,51 @@ class ShiftClockApp(tk.Tk):
         logs = load_employee_logs(self.user)
         last = next((log for log in reversed(logs) if not log.get("clock_out")), None)
         if not last:
-            return messagebox.showinfo("Not Clocked In", "You don't have an open shift.")
+            return messagebox.showinfo("Not Clocked In", "You don't have an open shift.")
 
-        # one dialog for lunch
-        dlg = LunchDialog(self, self.user.get("lunch_minutes", 0))
-        took_lunch, lunch_mins = dlg.result
+        # ✅ No popup: use lunch already on the shift, or fall back to the user's default.
+        lunch_mins = int(last.get("lunch_minutes", self.user.get("lunch_minutes", 0)) or 0)
+        took_lunch = lunch_mins > 0
 
-        # stamp the log
+        # Stamp the log
         last["lunch_taken"]   = took_lunch
         last["lunch_minutes"] = lunch_mins
         last["clock_out"]     = now_trimmed()
         save_employee_logs(self.user, logs)
 
+        # Build the summary just like before
         start = datetime.fromisoformat(last["clock_in"])
         end   = datetime.fromisoformat(last["clock_out"])
         total_mins = int((end - start).total_seconds() // 60)
-        lunch      = last.get("lunch_minutes", 0)
+        lunch      = lunch_mins
 
-        # figure out if we've already applied commute for this date
+        # apply commute once per day
         shift_day = start.date()
-        # look for any *other* shift on the same date that has commute_minutes > 0
         already_commuted = any(
             datetime.fromisoformat(log["clock_out"]).date() == shift_day and
             log is not last and
             log.get("commute_minutes", 0) > 0
             for log in logs if log.get("clock_out")
         )
-
-        # only apply your stored commute once
         commute_rt = 0 if already_commuted else last.get("commute_minutes", 0)
 
         net = max(0, total_mins + commute_rt - lunch)
 
-        def fmt(m):
-            return f"{m//60}h {m%60}m"
+        def fmt(m): return f"{m//60}h {m%60}m"
+        
+        # messagebox.showinfo(
+        #     "Clocked Out",
+        #     f"Shift time:    {fmt(total_mins)}\n"
+        #     f"Commute total: {fmt(commute_rt)}\n"
+        #     f"Lunch:         {fmt(lunch)}\n"
+        #     f"Net paid time: {fmt(net)}"
+        # )
 
-        messagebox.showinfo(
-            "Clocked Out",
-            f"Shift time:    {fmt(total_mins)}\n"
-            f"Commute total: {fmt(commute_rt)}\n"
-            f"Lunch:         {fmt(lunch)}\n"
-            f"Net paid time: {fmt(net)}"
-        )
 
-        # then send them back to login
+        # back to login
         self.task_frame.pack_forget()
         self.login_frame.pack()
+
 
     def log_out_without_clocking_out(self):
         self.task_frame.pack_forget()
@@ -388,10 +387,6 @@ class TaskFrame(tk.Frame):
         super().__init__(master, bg="white", bd=0, relief="flat")
 
 
-        # clock buttons
-        self.clock_in_img = ImageTk.PhotoImage(Image.open(resource_path("Resources/clockIn.png")).resize((90, 90)))
-        self.clock_out_img = ImageTk.PhotoImage(Image.open(resource_path("Resources/stopButton.jpg")).resize((90, 90)))
-
 
         # Container box
         self.container = tk.Frame(self, bg="white", bd=0, relief="flat", padx=5, pady=5)
@@ -428,10 +423,16 @@ class TaskFrame(tk.Frame):
         self.task_dropdown.pack(pady=5)
 
         # Status
-        self.status_label = tk.Label(self.main_frame, text="", fg="blue", font=("Helvetica", 12))
+        self.status_label = tk.Label(self.main_frame, text="", fg="blue", font=("Helvetica", 12), bg="white")
 
-        # Clock button
-        self.clock_button = tk.Button(self.main_frame, image=self.clock_in_img, command=self.clock_toggle, bd=0)
+        # Clock button (plain text)
+        self.clock_button = tk.Button(
+            self.main_frame,
+            text="Clock In",
+            font=("Helvetica", 14, "bold"),
+            command=self.clock_toggle,
+            width=16
+        )
 
         # Request button
         self.request_button = tk.Button(self.main_frame, text="Request Shift Edit", font=("Helvetica", 12), command=self.master.show_request_form)
@@ -444,7 +445,7 @@ class TaskFrame(tk.Frame):
         user = self.master.user
 
         # Show company and hardcoded location
-        self.company_label.config(text=f"Company: {user['company']} – Location: {LOCATION}", bg="white")
+        self.company_label.config(text=f"{user['company']} – {LOCATION}", bg="white")
 
         # Welcome message
         self.welcome_label.config(text=f"Welcome {user['name']}", bg="white")
@@ -474,11 +475,10 @@ class TaskFrame(tk.Frame):
         else:
             print("User is clocked in.")
 
-        # ✅ Update status text and clock button label
         if clocked_in:
-            self.clock_button.config(image=self.clock_out_img, bg="white")
+            self.clock_button.config(text="Clock Out", bg="#f8d7da", activebackground="#f5c2c7")
         else:
-            self.clock_button.config(image=self.clock_in_img, bg="white")
+            self.clock_button.config(text="Clock In", bg="#d1e7dd", activebackground="#badbcc")
 
         # Repack elements
         self.status_label.pack(pady=5)

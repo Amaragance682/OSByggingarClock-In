@@ -8,6 +8,7 @@ import sys
 from datetime import datetime, timedelta
 
 
+
 from lib.utils import (
     load_users,
     load_task_config,
@@ -22,6 +23,7 @@ from lib.utils import (
 
 COMPANY_FOLDER = resource_path("Database/Fyrirtaeki")
 REQUESTS_FOLDER = resource_path("Database/Requests")
+APP_BG = "#f4f4f4"
 
 def _parse_iso(s: str):
     """Return datetime from ISO-ish string, or None if missing/invalid."""
@@ -32,16 +34,29 @@ def _parse_iso(s: str):
         pass
     return None
 
+def _parse_hhmm(s: str):
+    """Return (hour, minute) from 'HH:MM' or raise ValueError."""
+    if not isinstance(s, str) or ":" not in s:
+        raise ValueError("Bad time")
+    hh, mm = s.strip().split(":", 1)
+    h, m = int(hh), int(mm)
+    if not (0 <= h < 24 and 0 <= m < 60):
+        raise ValueError("Hour 0–23 and minute 0–59 required")
+    return h, m
+
+
 class AdminApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
+ 
         screen_width = self.winfo_screenwidth() - 60
         screen_height = self.winfo_screenheight() - 100
         self.geometry(f"{screen_width}x{screen_height}+0+0")
                 
         self.title("Admin View – Employee Shift Monitor")
-        self.configure(bg="#f4f4f4")
+        self.configure(bg=APP_BG)
+        self._build_styles()
 
         self.users = load_users()
         self.task_config = load_task_config()
@@ -52,19 +67,56 @@ class AdminApp(tk.Tk):
         self.task_var = tk.StringVar(value="Any")
         self.user_var = tk.StringVar(value="Any")
 
+
         self.create_navigation()
         self.create_shift_viewer()
 
-    def create_navigation(self):
-        nav_frame = tk.Frame(self, bg="#d9e6f2")
-        nav_frame.pack(fill="x")
 
-        self.nav_buttons = {}
+    def create_navigation(self):
+        # Destroy old bar if it exists
+        if hasattr(self, "_nav_bar") and self._nav_bar.winfo_exists():
+            self._nav_bar.destroy()
+
+        # Header container
+        self._nav_bar = ttk.Frame(self, style="NavBar.TFrame")
+        self._nav_bar.pack(fill="x")
+
+        # Left/Right zones
+        left  = ttk.Frame(self._nav_bar, style="NavBar.TFrame"); left.pack(side="left", padx=6, pady=6)
+        right = ttk.Frame(self._nav_bar, style="NavBar.TFrame"); right.pack(side="right", padx=6, pady=6)
+
+        # Subtle bottom hairline
+        tk.Frame(self._nav_bar, height=1, bg=self.BORDER).pack(fill="x", side="bottom")
+
+        # Holders so we can show/hide the active underline
+        self._nav_buttons   = {}   # name -> ttk.Button
+        self._nav_underbars = {}   # name -> tk.Frame (2px accent)
 
         for name in ["Shift Viewer", "Handle Requests", "Edit Database", "Control Board"]:
-            btn = tk.Button(nav_frame, text=name, font=("Helvetica", 12, "bold"), command=lambda n=name: self.switch_page(n))
-            btn.pack(side="left", padx=10, pady=5)
-            self.nav_buttons[name] = btn
+            holder = tk.Frame(left, bg=self.NAV_BG)
+            holder.pack(side="left", padx=4)
+
+            btn = ttk.Button(
+                holder,
+                text=name,
+                style="Nav.TButton",
+                command=lambda n=name: self.switch_page(n)
+            )
+            btn.pack(side="top")
+
+            # Accent underline (hidden by default)
+            under = tk.Frame(holder, height=2, bg=self.ACCENT)
+            # don't pack yet; shown by _set_active_nav
+
+            self._nav_buttons[name]   = btn
+            self._nav_underbars[name] = under
+
+        # Optional right-side content (e.g. company name, clock, etc.)
+        # ttk.Label(right, text="Admin", background=self.NAV_BG, foreground=self.MUTED).pack()
+
+        # Set initial active tab visually
+        self._set_active_nav("Shift Viewer")
+
 
     def save_status_change(self, filepath, employee, req_obj, new_status):
         try:
@@ -93,6 +145,10 @@ class AdminApp(tk.Tk):
             return "Invalid or Missing Time"
     
     def switch_page(self, name):
+        # update active nav styling
+        if hasattr(self, "_set_active_nav"):
+            self._set_active_nav(name)
+
         if name == "Shift Viewer":
             self.show_shift_viewer()
         elif name == "Handle Requests":
@@ -106,6 +162,19 @@ class AdminApp(tk.Tk):
             placeholder = tk.Label(self.main_area, text=f"{name} page coming soon...", font=("Helvetica", 16))
             placeholder.pack(pady=20)
 
+    def _set_active_nav(self, active_name):
+        # Toggle button styles and underline bars
+        for name, btn in self._nav_buttons.items():
+            is_active = (name == active_name)
+            btn.configure(style="Nav.Active.TButton" if is_active else "Nav.TButton")
+
+            under = self._nav_underbars[name]
+            # show active underline; hide others
+            if is_active and not under.winfo_ismapped():
+                under.pack(fill="x", side="top")  # appears right under the button
+            elif not is_active and under.winfo_ismapped():
+                under.pack_forget()
+
     def clear_main_area(self):
         for widget in self.main_area.winfo_children():
             widget.destroy()
@@ -118,54 +187,61 @@ class AdminApp(tk.Tk):
     def show_shift_viewer(self):
         self.clear_main_area()
 
-        filter_frame = tk.Frame(self.main_area, bg="#e9f0f8")
-        filter_frame.pack(fill="x", pady=10)
-
-        tk.Label(filter_frame, text="Time Range:").pack(side="left", padx=5)
-        self.time_range_dropdown = ttk.Combobox(filter_frame, textvariable=self.time_range_var, state="readonly", width=15)
-        self.time_range_dropdown['values'] = [
-            "Today",
-            "Last 3 Days",
-            "Last 7 Days",
-            "Last 30 Days",
-            "Last 3 Months",
-            "Last Year",
-            "All Time",
-        ]
-        self.time_range_dropdown.pack(side="left", padx=5)
+        left, right = self._toolbar(self.main_area)
+        # Time Range
+        self.time_range_dropdown = self._chip_combobox(
+            left, "Time Range",
+            textvariable=self.time_range_var, state="readonly",
+            width=16, style="Filter.TCombobox",
+            values=["Today","Last 3 Days","Last 7 Days","Last 30 Days",
+                    "Last 3 Months","Last Year","All Time"]
+        )
         self.time_range_dropdown.bind("<<ComboboxSelected>>", self.refresh_shifts)
 
-        tk.Label(filter_frame, text="Location:").pack(side="left", padx=5)
-        self.location_dropdown = ttk.Combobox(filter_frame, textvariable=self.location_var, state="readonly")
-        self.location_dropdown.pack(side="left", padx=5)
-        self.location_dropdown.bind("<<ComboboxSelected>>", self.on_location_selected)
-
-        tk.Label(filter_frame, text="Company:").pack(side="left", padx=5)
-        self.company_dropdown = ttk.Combobox(filter_frame, textvariable=self.company_var, state="readonly")
-        self.company_dropdown.pack(side="left", padx=5)
-        self.company_dropdown.bind("<<ComboboxSelected>>", self.on_company_selected)
-
-        tk.Label(filter_frame, text="User:").pack(side="left", padx=5)
-        self.user_dropdown = ttk.Combobox(
-            filter_frame,
-            textvariable=self.user_var,
-            state="readonly",
-            width=20,
-            values=["Any"]  # will be populated when company changes
+        # Location
+        self.location_dropdown = self._chip_combobox(
+            left, "Location",
+            textvariable=self.location_var, state="readonly",
+            width=18, style="Filter.TCombobox"
         )
-        self.user_dropdown.pack(side="left", padx=5)
+        self.location_dropdown.bind("<<ComboboxSelected>>", self.on_loc_selected)
+
+        # Company
+        self.company_dropdown = self._chip_combobox(
+            left, "Company",
+            textvariable=self.company_var, state="readonly",
+            width=18, style="Filter.TCombobox"
+        )
+        self.company_dropdown.bind("<<ComboboxSelected>>", self.on_comp_selected)
+
+        # User
+        self.user_dropdown = self._chip_combobox(
+            left, "User",
+            textvariable=self.user_var, state="readonly",
+            width=18, style="Filter.TCombobox",
+            values=["Any"]
+        )
         self.user_dropdown.bind("<<ComboboxSelected>>", self.refresh_shifts)
 
-        tk.Label(filter_frame, text="Task:").pack(side="left", padx=5)
-        self.task_dropdown = ttk.Combobox(filter_frame, textvariable=self.task_var, state="readonly", width=40)
-        self.task_dropdown.pack(side="left", padx=5)
+        # Task
+        self.task_dropdown = self._chip_combobox(
+            left, "Task",
+            textvariable=self.task_var, state="readonly",
+            width=30, style="Filter.TCombobox"
+        )
         self.task_dropdown.bind("<<ComboboxSelected>>", self.refresh_shifts)
 
-        # after you pack your dropdowns, add:
-        tk.Button(filter_frame, text="Add Shift",
-                  font=("Helvetica",11),
-                  command=self.add_shift) \
-          .pack(side="right", padx=10)
+
+        # Action (right side)
+        tk.Button(
+            right, text="Add Shift",
+            font=("Helvetica", 11, "bold"),
+            bg=self.ACCENT, fg="white",
+            activebackground="#2157b2", activeforeground="white",
+            relief="flat", padx=14, pady=6,
+            command=self.add_shift
+        ).pack(padx=6)
+
 
         self.shift_canvas = tk.Canvas(self.main_area, bg="#f4f4f4", highlightthickness=0)
         self.shift_scrollbar = tk.Scrollbar(self.main_area, orient="vertical", command=self.shift_canvas.yview)
@@ -178,6 +254,7 @@ class AdminApp(tk.Tk):
         self.shift_frame.bind("<Configure>", lambda e: self.shift_canvas.configure(scrollregion=self.shift_canvas.bbox("all")))
 
         self.refresh_shifts()
+
 
     def add_shift(self):
         win = tk.Toplevel(self)
@@ -204,21 +281,38 @@ class AdminApp(tk.Tk):
         task_cb.grid( row=2, column=1, sticky="w", padx=5, pady=5)
 
         # 4) CLOCK‑IN / OUT / LUNCH...
-        tk.Label(win, text="Clock‑in (YYYY-MM-DD HH:MM):").grid(row=3, column=0, sticky="e", padx=5)
-        in_var = tk.StringVar(value=now_trimmed())
-        tk.Entry(win, textvariable=in_var).grid(row=3, column=1, sticky="w", padx=5)
+        today_str = datetime.now().strftime("%Y-%m-%d")
 
-        tk.Label(win, text="Clock‑out (YYYY-MM-DD HH:MM):").grid(row=4, column=0, sticky="e", padx=5)
-        out_var = tk.StringVar(value=now_trimmed())
-        tk.Entry(win, textvariable=out_var).grid(row=4, column=1, sticky="w", padx=5)
+        tk.Label(win, text="Date (YYYY-MM-DD):").grid(row=3, column=0, sticky="e", padx=5)
+        date_var = tk.StringVar(value=datetime.now().strftime("%Y-%m-%d"))
+        tk.Entry(win, textvariable=date_var, width=12, justify="center") \
+            .grid(row=3, column=1, sticky="w", padx=5)
 
-        tk.Label(win, text="Lunch (min):").grid(row=5, column=0, sticky="e", padx=5)
+        tk.Label(win, text="Clock-in (HH:MM):").grid(row=4, column=0, sticky="e", padx=5)
+        in_time_var = tk.StringVar(value=datetime.now().strftime("%H:%M"))
+        tk.Entry(win, textvariable=in_time_var, width=8, justify="center") \
+            .grid(row=4, column=1, sticky="w", padx=5)
+
+        tk.Label(win, text="Clock-out (HH:MM):").grid(row=5, column=0, sticky="e", padx=5)
+        out_time_var = tk.StringVar(value=datetime.now().strftime("%H:%M"))
+        tk.Entry(win, textvariable=out_time_var, width=8, justify="center") \
+            .grid(row=5, column=1, sticky="w", padx=5)
+
+        # move Lunch to row 6 (not 5!)
+        tk.Label(win, text="Lunch (min):").grid(row=6, column=0, sticky="e", padx=5)
         lunch_var = tk.StringVar(value="0")
-        tk.Entry(win, textvariable=lunch_var, width=5).grid(row=5, column=1, sticky="w", padx=5)
+        tk.Entry(win, textvariable=lunch_var, width=5) \
+            .grid(row=6, column=1, sticky="w", padx=5)
 
-        tk.Label(win, text="Commute (min):").grid(row=6, column=0, sticky="e", padx=5, pady=(0,5))
+        # move Commute to row 7
+        tk.Label(win, text="Commute (min):").grid(row=7, column=0, sticky="e", padx=5, pady=(0,5))
         commute_var = tk.StringVar(value="0")
-        tk.Entry(win, textvariable=commute_var, width=5).grid(row=6, column=1, sticky="w", padx=5, pady=(0,5))
+        tk.Entry(win, textvariable=commute_var, width=5) \
+            .grid(row=7, column=1, sticky="w", padx=5, pady=(0,5))
+
+        # Buttons on row 8
+        btnf = tk.Frame(win)
+        btnf.grid(row=8, column=0, columnspan=2, pady=10)
 
 
         # —–––––––––––––––––––––––––––––––––––––––––––
@@ -253,22 +347,54 @@ class AdminApp(tk.Tk):
         loc_cb .bind("<<ComboboxSelected>>", on_loc_change)
 
         # OK / Cancel
-        btnf = tk.Frame(win)
-        btnf.grid(row=7, column=0, columnspan=2, pady=10)
-        tk.Button(btnf, text="OK", command=lambda: self._save_new_shift(
-            win, user_var, loc_var, task_var, in_var, out_var, lunch_var, commute_var
-        )).pack(side="left", padx=5)
+        btnf = tk.Frame(win); btnf.grid(row=8, column=0, columnspan=2, pady=10)
+        tk.Button(
+            btnf, text="OK",
+            command=lambda: self._save_new_shift(
+                win, user_var, loc_var, task_var,
+                date_var, in_time_var, out_time_var, lunch_var, commute_var
+            )
+        ).pack(side="left", padx=5)
         tk.Button(btnf, text="Cancel", command=win.destroy).pack(side="left")
 
-    def _save_new_shift(self, win, user_var, loc_var, task_var, in_var, out_var, lunch_var, commute_var):
-        user = next(u for u in self.users if u["name"] == user_var.get())
+    def _save_new_shift(self, win, user_var, loc_var, task_var, date_var, in_time_var, out_time_var, lunch_var, commute_var):
+
+        user = next((u for u in self.users if u["name"] == user_var.get()), None)
+        if not user:
+            return messagebox.showerror("Error", "Please choose a user.")
+
+        # date
+        try:
+            base_date = datetime.fromisoformat(date_var.get()).date()
+        except Exception:
+            return messagebox.showerror("Error", "Date must be YYYY-MM-DD.")
+
+        # times + minutes
+        try:
+            ih, im = _parse_hhmm(in_time_var.get())
+            oh, om = _parse_hhmm(out_time_var.get())  # required now
+            lm = int(lunch_var.get()); cm = int(commute_var.get())
+            if lm < 0 or cm < 0:
+                raise ValueError
+        except Exception:
+            return messagebox.showerror(
+                "Error",
+                "Use HH:MM for times and non-negative integers for Lunch/Commute."
+            )
+
+        # build datetimes
+        clock_in_dt = datetime.combine(base_date, datetime.min.time()).replace(hour=ih, minute=im)
+        clock_out_dt = datetime.combine(base_date, datetime.min.time()).replace(hour=oh, minute=om)
+        if clock_out_dt < clock_in_dt:
+            clock_out_dt += timedelta(days=1)  # overnight
+
         entry = {
-            "clock_in":     in_var.get(),
-            "clock_out":    out_var.get(),
-            "task":         task_var.get(),
-            "location":     loc_var.get(),
-            "lunch_minutes": int(lunch_var.get()),
-            "commute_minutes": int(commute_var.get())
+            "clock_in":        clock_in_dt.strftime("%Y-%m-%d %H:%M"),
+            "clock_out":       clock_out_dt.strftime("%Y-%m-%d %H:%M"),
+            "task":            task_var.get(),
+            "location":        loc_var.get(),
+            "lunch_minutes":   lm,
+            "commute_minutes": cm,
         }
 
         logs = load_employee_logs(user)
@@ -278,23 +404,34 @@ class AdminApp(tk.Tk):
         self.refresh_shifts()
 
 
-    def on_location_selected(self, event=None):
-        self.company_var.set("Any")
-        self.task_var.set("Any")
-        self.refresh_shifts()
 
-    def on_company_selected(self, event=None):
-        self.task_var.set("Any")
-        # — now repopulate the user dropdown too —
-        company = self.company_var.get()
-        names = [
-            u["name"]
-            for u in self.users
-            if company=="Any" or u["company"]==company
-        ]
-        self.user_dropdown["values"] = ["Any"] + sorted(names)
-        self.user_var.set("Any")
-        self.refresh_shifts()
+    def on_loc_selected(self, evt=None):
+        sel = self.loc_lb.curselection()
+        self.current_loc = self.loc_lb.get(sel) if sel else None
+        self.refresh_companies()
+
+        # Limit the Users company filter to the selected location's companies
+        if hasattr(self, "user_company_combo"):
+            comps = sorted(self.task_config.get(self.current_loc, {}).keys()) if self.current_loc else []
+            self.user_company_combo["values"] = comps
+            if comps:
+                self.user_company_var.set(comps[0])
+            else:
+                self.user_company_var.set("")
+            self.on_user_company_selected()
+
+        # Breadcrumb
+        comp = getattr(self, "current_comp", None) or "—"
+        self.breadcrumb_var.set(f"{self.current_loc or '—'}  ▸  {comp}")
+
+    def on_comp_selected(self, evt=None):
+        sel = self.comp_lb.curselection()
+        self.current_comp = self.comp_lb.get(sel) if sel else None
+        self.refresh_tasks()
+
+        # Breadcrumb
+        self.breadcrumb_var.set(f"{getattr(self, 'current_loc', None) or '—'}  ▸  {self.current_comp or '—'}")
+
 
     def get_company_names(self):
         return [name for name in os.listdir(COMPANY_FOLDER)
@@ -492,152 +629,325 @@ class AdminApp(tk.Tk):
             else:
                 seen.add(day_key)
 
-        # --- finally render ---
+        # finally render
         self.display_shifts(active, finished)
+
 
 
     def show_handle_requests(self):
         self.clear_main_area()
 
-        request_canvas = tk.Canvas(self.main_area, bg="#f4f4f4", highlightthickness=0)
-        scrollbar = tk.Scrollbar(self.main_area, orient="vertical", command=request_canvas.yview)
-        request_canvas.configure(yscrollcommand=scrollbar.set)
+        ttk.Label(self.main_area,
+                text="Shift Edit Requests",
+                style="Heading.TLabel").pack(anchor="w", padx=12, pady=(12, 4))
 
-        request_canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # If you don't already have these:
+        self.req_company_var = getattr(self, "req_company_var", tk.StringVar(value="Any"))
+        self.req_status_var  = getattr(self, "req_status_var",  tk.StringVar(value="Any"))
 
-        request_frame = tk.Frame(request_canvas, bg="#f4f4f4")
-        request_canvas.create_window((0, 0), window=request_frame, anchor="nw")
+        # Toolbar
+        left, right = self._toolbar(self.main_area)
 
-        # Set scrollregion whenever the frame size changes
-        request_frame.bind("<Configure>", lambda e: request_canvas.configure(scrollregion=request_canvas.bbox("all")))
+        req_company_cb = self._chip_combobox(
+            left, "Company",
+            textvariable=self.req_company_var, state="readonly",
+            width=28, style="Filter.TCombobox",
+            values=(["Any"] + sorted(os.listdir(REQUESTS_FOLDER))
+                    if os.path.isdir(REQUESTS_FOLDER) else ["Any"])
+        )
+        req_company_cb.bind("<<ComboboxSelected>>", lambda e: self.show_handle_requests())
 
-        for i in range(5):
-            request_frame.grid_columnconfigure(i, weight=1, uniform="requests")
+        req_status_cb = self._chip_combobox(
+            left, "Status",
+            textvariable=self.req_status_var, state="readonly",
+            width=18, style="Filter.TCombobox",
+            values=["Any","Pending","Approved","Rejected"]
+        )
+        req_status_cb.bind("<<ComboboxSelected>>", lambda e: self.show_handle_requests())
 
-        current_index = 0  # total cards placed
+        # ── Scrollable area ─────────────────────────────────────────────
+        canvas = tk.Canvas(self.main_area, bg=APP_BG, highlightthickness=0)
+        vbar   = tk.Scrollbar(self.main_area, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        vbar.pack(side="right", fill="y")
 
-        for company in os.listdir(REQUESTS_FOLDER):
+        grid_frame = tk.Frame(canvas, bg=APP_BG)
+        canvas.create_window((0, 0), window=grid_frame, anchor="nw")
+        grid_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        # 3 cards per row
+        for c in range(3):
+            grid_frame.grid_columnconfigure(c, weight=1, uniform="reqcol")
+
+        # ── Build cards ─────────────────────────────────────────────────
+        current_index = 0
+        company_filter = self.req_company_var.get()
+        status_filter  = self.req_status_var.get().lower()
+
+        if not os.path.isdir(REQUESTS_FOLDER):
+            tk.Label(grid_frame, text="No requests folder found.",
+                    font=("Helvetica", 13, "italic"), fg="gray50", bg=APP_BG).grid(padx=20, pady=20)
+            return
+
+        for company in sorted(os.listdir(REQUESTS_FOLDER)):
             company_path = os.path.join(REQUESTS_FOLDER, company)
             if not os.path.isdir(company_path):
                 continue
+            if company_filter != "Any" and company != company_filter:
+                continue
 
-            for filename in os.listdir(company_path):
-                if filename.endswith("_requests.json"):
-                    employee_name = filename.replace("_requests.json", "")
-                    filepath = os.path.join(company_path, filename)
+            for filename in sorted(os.listdir(company_path)):
+                if not filename.endswith("_requests.json"):
+                    continue
+
+                employee_name = filename.replace("_requests.json", "")
+                filepath = os.path.join(company_path, filename)
+
+                try:
                     with open(filepath, 'r', encoding='utf-8') as f:
-                        try:
-                            requests = json.load(f)
-                        except json.JSONDecodeError:
-                            continue
+                        requests = json.load(f)
+                except json.JSONDecodeError:
+                    continue
 
-                        for req in requests:
-                            col = current_index % 5
-                            row = current_index // 5
-                            card = self.create_request_card(request_frame, employee_name, req, company, filepath)
-                            card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
-                            current_index += 1
- 
-        # After all widgets are added, update scrollregion:
-        request_frame.update_idletasks()
-        request_canvas.config(scrollregion=request_canvas.bbox("all"))
+                for req in requests:
+                    # apply status filter
+                    st = str(req.get("status", "pending")).lower()
+                    if status_filter != "any" and st != status_filter:
+                        continue
+
+                    col = current_index % 3
+                    row = current_index // 3
+                    card = self.create_request_card(grid_frame, employee_name, req, company, filepath)
+                    card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+                    current_index += 1
+
+        if current_index == 0:
+            tk.Label(grid_frame, text="No requests match your filters.",
+                    font=("Helvetica", 13, "italic"), fg="gray50", bg=APP_BG).grid(padx=20, pady=20)
+
 
     def show_control_board(self):
         self.clear_main_area()
 
-        header = tk.Label(self.main_area, text="Currently Working – Company Overview", font=("Helvetica", 16, "bold"), bg="#f4f4f4", fg="#2e2e2e")
-        header.pack(pady=20)
+        ttk.Label(self.main_area,
+                text="Currently Working — Control Board",
+                style="Heading.TLabel").pack(anchor="w", padx=12, pady=(12, 4))
 
-        summary = self.get_currently_working_summary()
+        # Filter toolbar (Location only)
+        left, right = self._toolbar(self.main_area)
+        self.cb_location_var = tk.StringVar(value="Any")
+        self.cb_location_cb = self._chip_combobox(
+            left, "Location",
+            textvariable=self.cb_location_var, state="readonly",
+            width=35, style="Filter.TCombobox",
+            values=["Any"] + sorted(self.task_config.keys())
+        )
+        self.cb_location_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_control_board())
+
+
+
+        # Cards container
+        self.cb_cards_frame = tk.Frame(self.main_area, bg=self.APP_BG)
+        self.cb_cards_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        self.refresh_control_board()
+
+
+    def refresh_control_board(self):
+        # Clear old
+        for w in self.cb_cards_frame.winfo_children():
+            w.destroy()
+
+        app_bg = "#f4f4f4"
+        card_cols = 3  # how many cards per row
+
+        for c in range(card_cols):
+            self.cb_cards_frame.grid_columnconfigure(c, weight=1, uniform="col")
+
+        loc_filter = getattr(self, "cb_location_var", None)
+        loc_filter = loc_filter.get() if loc_filter else "Any"
+
+        summary = self.get_currently_working_summary(loc_filter)
 
         if not summary:
-            tk.Label(self.main_area, text="No one is currently working.", font=("Helvetica", 14), bg="#f4f4f4", fg="gray").pack()
+            tk.Label(self.cb_cards_frame, text="No one is currently working.",
+                    font=("Helvetica", 14, "italic"), fg="gray50", bg=app_bg).pack(pady=20)
             return
 
-        for company, names in sorted(summary.items()):
-            row = tk.Frame(self.main_area, bg="#f4f4f4")
-            row.pack(anchor="w", padx=30, pady=5)
+        for idx, (company, names) in enumerate(sorted(summary.items())):
+            r, c = divmod(idx, card_cols)
+            card = self._company_card(self.cb_cards_frame, company, sorted(names))
+            card.grid(row=r, column=c, padx=10, pady=10, sticky="nsew")
 
-            # Company + count
-            lbl = tk.Label(row,
-                text=f"• {company}: {len(names)} people",
-                font=("Helvetica", 12, "bold"),
-                bg="#f4f4f4",
-                fg="#007700"
-            )
-            lbl.pack(side="left")
+    def _company_card(self, parent, company, names):
+        # colors
+        APP_BG     = self["bg"] if self["bg"] else "#f4f4f4"
+        CARD_BG    = "#ffffff"
+        BORDER     = "#d6dbe3"
+        HEADER_BG  = "#e9f0f8"
+        TEXT       = "#2e2e2e"
+        SUBTLE_ROW = "#fafafa"
 
-            # Dropdown of names
-            combo = ttk.Combobox(
-                row,
-                values=names,
-                state="readonly",
-                width=30
-            )
-            combo.set("Show names…")
-            combo.pack(side="left", padx=(10,0))
+        # outer matches app bg (no white strip)
+        outer = tk.Frame(parent, bg=APP_BG)
 
+        # inner card
+        card = tk.Frame(
+            outer, bg=CARD_BG, bd=0,
+            highlightthickness=1, highlightbackground=BORDER, highlightcolor=BORDER
+        )
+        card.pack(fill="both", expand=True)
+
+        # header bar
+        header = tk.Frame(card, bg=HEADER_BG)
+        header.pack(fill="x")
+        tk.Label(
+            header, text=f"{company}  —  {len(names)}",
+            font=("Helvetica", 12, "bold"), bg=HEADER_BG, fg=TEXT, pady=6
+        ).pack(padx=8)
+
+        # body
+        body = tk.Frame(card, bg=CARD_BG)
+        body.pack(fill="both", expand=True, padx=10, pady=8)
+
+        # employee rows
+        for i, name in enumerate(names):
+            row_bg = CARD_BG if i % 2 == 0 else SUBTLE_ROW
+            row = tk.Frame(body, bg=row_bg)
+            row.pack(fill="x", pady=1)
+            tk.Label(row, text="•", font=("Helvetica", 14), bg=row_bg, fg=TEXT).pack(side="left")
+            tk.Label(row, text=name, font=("Helvetica", 11), bg=row_bg, fg=TEXT).pack(side="left", padx=4)
+
+        return outer
+
+    def _chip_combobox(self, parent, label_text, **cb_kwargs):
+        """Create a pill + ttk.Combobox that actually lives inside the pill.
+        Returns the Combobox so you can bind to it."""
+        chip = tk.Frame(
+            parent,
+            bg=self.PILL_BG,
+            highlightthickness=1,
+            highlightbackground=self.BORDER,
+            highlightcolor=self.BORDER,
+        )
+        ttk.Label(chip, text=label_text, style="FilterLabel.TLabel") \
+            .pack(side="left", padx=(10, 6), pady=6)
+        cb = ttk.Combobox(chip, **cb_kwargs)
+        cb.pack(side="left", padx=(0, 10), pady=6)
+        chip.pack(side="left", padx=6, pady=2)
+        return cb
 
     def display_shifts(self, active, finished):
-        # clear old cards
+        # Clear existing
         for w in self.shift_frame.winfo_children():
             w.destroy()
 
-        # if nothing to show, print “no results” and stop
-        if not active and not finished:
-            tk.Label(
-                self.shift_frame,
-                text="No results found.",
-                font=("Helvetica", 14, "italic"),
-                fg="gray50",
-                bg="#f4f4f4"
-            ).pack(pady=20)
-            return
+        APP_BG = self["bg"] if self["bg"] else "#f4f4f4"
 
-        # otherwise we have shifts → build the container
-        container      = tk.Frame(self.shift_frame, bg="#e0e0e0", bd=2, relief="groove")
-        container.pack(padx=15, pady=10, fill="both", expand=True)
-        active_frame   = tk.Frame(container, bg="#e0e0e0")
-        finished_frame = tk.Frame(container, bg="#e0e0e0")
-        active_frame.grid(  row=0, column=0, sticky="nsew", padx=10, pady=10)
-        finished_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-        container.grid_columnconfigure(0, weight=1)
-        container.grid_columnconfigure(1, weight=1)
+        wrapper = tk.Frame(self.shift_frame, bg=APP_BG)
+        wrapper.pack(fill="x", expand=True, padx=10, pady=8)
 
-        # Currently working
+        COLS = 3  # ← three columns for both sections
+
+        # ── Currently Working (top) ────────────────────────────────────────
+        outer_a, body_a = self._section_card(wrapper, "Currently Working",
+                                            accent="#f49301", fill_y=False)
+        outer_a.pack(fill="x", expand=False, padx=6, pady=6)
+
         if active:
-            tk.Label(active_frame, text="Currently Working",
-                     font=("Helvetica", 14, "bold"), bg="#e0e0e0", fg="#f49301")\
-              .grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=5)
-            for idx, info in enumerate(active):
-                r, c = idx//2 + 1, idx%2
-                card = self.make_card(info, True,  active_frame, {})
-                card.grid(row=r, column=c, padx=10, pady=5, sticky="nsew")
+            for c in range(COLS):
+                body_a.grid_columnconfigure(c, weight=1, uniform="actcol")
+            for i, info in enumerate(active):
+                r, c = divmod(i, COLS)
+                card = self._shift_card(body_a, info, active=True)
+                card.grid(row=r, column=c, sticky="nsew", padx=6, pady=6)
+        else:
+            tk.Label(body_a, text="No one is currently working.",
+                    font=("Helvetica", 11, "italic"),
+                    fg="gray50", bg="#ffffff").pack(anchor="w", padx=10, pady=8)
 
-        # Finished shifts
+        # ── Finished Shifts (bottom) ───────────────────────────────────────
+        outer_f, body_f = self._section_card(wrapper, "Finished Shifts",
+                                            accent="#2e7730", fill_y=False)
+        outer_f.pack(fill="x", expand=False, padx=6, pady=6)
+
         if finished:
-            tk.Label(finished_frame, text="Finished Shifts",
-                     font=("Helvetica", 14, "bold"), bg="#e0e0e0", fg="#2e7730")\
-              .grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=10)
-            for idx, info in enumerate(finished):
-                r, c = idx//2 + 1, idx%2
-                card = self.make_card(info, False, finished_frame, {})
-                card.grid(row=r, column=c, padx=10, pady=5, sticky="nsew")
+            for c in range(COLS):
+                body_f.grid_columnconfigure(c, weight=1, uniform="fincol")
+            for i, info in enumerate(finished):
+                r, c = divmod(i, COLS)
+                card = self._shift_card(body_f, info, active=False)
+                card.grid(row=r, column=c, sticky="nsew", padx=6, pady=6)
+        else:
+            tk.Label(body_f, text="No finished shifts in range.",
+                    font=("Helvetica", 11, "italic"),
+                    fg="gray50", bg="#ffffff").pack(anchor="w", padx=10, pady=8)
 
 
 
-    def get_currently_working_summary(self):
+
+    def get_currently_working_summary(self, location_filter="Any"):
+        """
+        Return {company: [names]} for users who have an *open* shift.
+        If location_filter != "Any", only count shifts at that location.
+        """
         summary = {}
         for user in self.users:
             logs = load_employee_logs(user)
-            # if any open shift, include user
-            if any(log.get("clock_out") is None for log in logs):
-                comp = user.get("company", "Unknown")
-                summary.setdefault(comp, []).append(user["name"])
+            # If the user has any open shift that matches the location filter, include them once
+            for log in logs:
+                if log.get("clock_out") is None:
+                    if location_filter == "Any" or log.get("location") == location_filter:
+                        comp = user.get("company", "Unknown")
+                        summary.setdefault(comp, []).append(user["name"])
+                        break  # don't add same user twice if multiple open logs
         return summary
 
-    def make_card(self, info, active=True, parent=None, adjusted_durations=None):
+
+    def _section_card(self, parent, title, accent="#3b82f6", fill_y=True):
+        APP_BG   = self["bg"] if self["bg"] else "#f4f4f4"
+        CARD_BG  = "#ffffff"
+        BORDER   = "#d6dbe3"
+        HEADER_BG= "#e9f0f8"
+        TEXT     = "#2e2e2e"
+
+        outer = tk.Frame(parent, bg=APP_BG)
+
+        card = tk.Frame(outer, bg=CARD_BG, highlightthickness=1,
+                        highlightbackground=BORDER, highlightcolor=BORDER)
+        # ↓ only fill vertically when asked
+        if fill_y:
+            card.pack(fill="both", expand=True)
+        else:
+            card.pack(fill="x", expand=False)
+
+        header = tk.Frame(card, bg=HEADER_BG)
+        header.pack(fill="x")
+        tk.Label(header, text=title, font=("Helvetica", 13, "bold"),
+                bg=HEADER_BG, fg=TEXT, pady=8).pack(side="left", padx=10)
+
+        tk.Frame(card, height=2, bg=accent).pack(fill="x")
+
+        body = tk.Frame(card, bg=CARD_BG)
+        if fill_y:
+            body.pack(fill="both", expand=True, padx=12, pady=10)
+        else:
+            body.pack(fill="x", expand=False, padx=12, pady=10)
+
+        return outer, body
+
+
+
+    def _shift_card(self, parent, info, active=True):
+        """
+        Pretty card for a single shift.
+        """
+        BORDER   = "#d6dbe3"
+        CARD_BG  = "#ffffff"
+        ROW_ALT  = "#fafafa"
+        TEXT     = "#2e2e2e"
+        SUBTEXT  = "#6b7280"
+
         name      = info["name"]
         uid       = info["uid"]
         task      = info["task"]
@@ -645,109 +955,84 @@ class AdminApp(tk.Tk):
         clock_in  = info["clock_in"]
         clock_out = info["clock_out"]
 
-        icon  = "⏳" if active else "✅"
-        title = f"{icon} {name}"
+        start_dt  = datetime.fromisoformat(clock_in)
+        end_dt    = datetime.now() if active else (datetime.fromisoformat(clock_out) if clock_out else None)
+        lunch_m   = int(info.get("lunch_minutes", 0) or 0)
+        commute_m = int(info.get("commute_minutes", 0) or 0)
 
-        frame = tk.LabelFrame(parent, text=title,
-                              font=("Helvetica", 12, "bold"),
-                              bg="white", padx=10, pady=5)
-
-        # ── Basic info ──
-        tk.Label(frame, text=f"Task: {task}",
-                 font=("Helvetica",11), bg="white", anchor="w")\
-          .pack(anchor="w")
-        tk.Label(frame, text=f"Location: {location}",
-                 font=("Helvetica",11), bg="white", anchor="w")\
-          .pack(anchor="w")
-
-        # ── New: show date of shift ──
-        start_dt = datetime.fromisoformat(clock_in)
-        date_str = start_dt.strftime("%A, %Y-%m-%d")   # e.g. "Thursday, 2025-07-17"
-        tk.Label(frame,
-                text=f"Date: {date_str}",
-                font=("Helvetica",11,"italic"),
-                fg="gray20", bg="white", anchor="w")\
-        .pack(anchor="w", pady=(0,4))
-
-        # ── Clock‑in/out ──
-        tk.Label(frame, text=f"Clock‑in: {clock_in[11:16]}",
-                 font=("Helvetica",11), bg="white", anchor="w")\
-          .pack(anchor="w")
-        if clock_out:
-            tk.Label(frame, text=f"Clock‑out: {clock_out[11:16]}",
-                     font=("Helvetica",11), bg="white", anchor="w")\
-              .pack(anchor="w")
-
-        # ── Shift summary ──
-        if not active and clock_out:
-            start_dt   = datetime.fromisoformat(clock_in)
-            end_dt     = datetime.fromisoformat(clock_out)
-            lunch_mins = info.get("lunch_minutes", 0)
-            commute_rt = info.get("commute_minutes", 0)
-
-            # raw net seconds (could be negative)
-            raw_secs = (end_dt - start_dt).total_seconds() \
-                    + commute_rt * 60 \
-                    - lunch_mins * 60
-
-            # clamp at zero and flag negative for review
-            if raw_secs < 0:
-                total_secs = 0
-                error_flag = True
+        # compute totals for finished shifts
+        summary_text = ""
+        if end_dt:
+            secs = (end_dt - start_dt).total_seconds()
+            if not active:
+                secs = secs + (commute_m * 60) - (lunch_m * 60)
+                secs = max(0, secs)
+            hrs  = int(secs // 3600); mins = int((secs % 3600) // 60)
+            if active:
+                summary_text = f"On since {start_dt.strftime('%H:%M')}  ·  {hrs}h {mins}m"
             else:
-                total_secs = raw_secs
-                error_flag = False
+                summary_text = f"{start_dt.strftime('%H:%M')}–{end_dt.strftime('%H:%M')}  ·  total {hrs}h {mins}m"
 
-            hrs  = int(total_secs // 3600)
-            mins = int((total_secs % 3600) // 60)
+        # card
+        card = tk.Frame(parent, bg=CARD_BG, highlightthickness=1,
+                        highlightbackground=BORDER, highlightcolor=BORDER)
+        # header row
+        hdr = tk.Frame(card, bg=CARD_BG)
+        hdr.pack(fill="x", padx=10, pady=(8, 4))
 
-            summary = (
-                f"Worked {start_dt.strftime('%H:%M')}–{end_dt.strftime('%H:%M')}, "
-                f"{'no lunch' if lunch_mins==0 else f'took {lunch_mins} min lunch'}, "
-                f"commute {commute_rt} min, "
-                f"total: {hrs}h {mins}m"
-            )
+        status_text = "ACTIVE" if active else "FINISHED"
+        status_bg   = "#fde68a" if active else "#d1fae5"
+        status_fg   = "#92400e" if active else "#065f46"
 
-            lbl = tk.Label(frame,
-                        text=summary,
-                        font=("Helvetica",10,"italic"),
-                        bg="white",
-                        anchor="w")
-            lbl.pack(anchor="w", pady=(5,0))
+        # name + status
+        tk.Label(hdr, text=name, font=("Helvetica", 12, "bold"),
+                bg=CARD_BG, fg=TEXT).pack(side="left")
+        tk.Label(hdr, text=status_text, font=("Helvetica", 9, "bold"),
+                bg=status_bg, fg=status_fg, padx=8, pady=2).pack(side="right")
 
-            # show conflict if present
+        # info rows
+        body = tk.Frame(card, bg=CARD_BG)
+        body.pack(fill="both", expand=True, padx=10, pady=(0,6))
+
+        # line 1: task + location
+        row1 = tk.Frame(body, bg=CARD_BG); row1.pack(fill="x")
+        tk.Label(row1, text=f"🏷  {task}", bg=CARD_BG, fg=TEXT,
+                font=("Helvetica", 10)).pack(side="left")
+        tk.Label(row1, text=f"📍  {location}", bg=CARD_BG, fg=TEXT,
+                font=("Helvetica", 10)).pack(side="right")
+
+        # line 2: date + times
+        row2 = tk.Frame(body, bg=ROW_ALT); row2.pack(fill="x", pady=6)
+        tk.Label(row2, text=start_dt.strftime("%A, %Y-%m-%d"),
+                bg=ROW_ALT, fg=SUBTEXT, font=("Helvetica", 10, "italic")).pack(side="left", padx=6, pady=4)
+        tk.Label(row2, text=summary_text, bg=ROW_ALT, fg=SUBTEXT,
+                font=("Helvetica", 10)).pack(side="right", padx=6)
+
+        # line 3 (finished only): lunch/commute chips + conflict badge if any
+        if not active and clock_out:
+            row3 = tk.Frame(body, bg=CARD_BG); row3.pack(fill="x", pady=(2,0))
+            chip = lambda txt: tk.Label(row3, text=txt, bg="#f3f4f6", fg="#374151",
+                                        font=("Helvetica", 9), padx=8, pady=2)
+            chip(f"Lunch {lunch_m}m").pack(side="left", padx=(0,6))
+            chip(f"Commute {commute_m}m").pack(side="left")
             grp = info.get("conflict_group")
             if grp is not None:
-                tk.Label(frame,
-                        text=f"⚠ Conflicting shift {grp}!",
-                        font=("Helvetica", 10, "bold"),
-                        fg="red", bg="white")\
-                .pack(anchor="w", pady=(0,4))
-            if error_flag:
-                # mark it in red so a manager can spot it
-                lbl.config(fg="red")
-                # optionally you could prepend a warning icon/text
-                # lbl.config(text="⚠ Invalid times! " + summary)
+                tk.Label(row3, text=f"⚠ conflict {grp}", bg="#fee2e2", fg="#991b1b",
+                        font=("Helvetica", 9, "bold"), padx=6, pady=2).pack(side="right")
 
-        # ── Button bar ──
-        btn_frame = tk.Frame(frame, bg="white")
-        btn_frame.pack(anchor="w", pady=5)
-
-        tk.Button(btn_frame, text="Edit",
-                  command=lambda: self.edit_shift(uid, clock_in))\
-          .pack(side="left", padx=5)
-
+        # buttons
+        btns = tk.Frame(card, bg=CARD_BG); btns.pack(fill="x", padx=8, pady=8)
+        style_btn = dict(font=("Helvetica", 10), padx=10, pady=2)
         if active:
-            tk.Button(btn_frame, text="End Shift",
-                      command=lambda: self.end_shift(uid, clock_in))\
-              .pack(side="left", padx=5)
+            tk.Button(btns, text="End Shift",
+                    command=lambda: self.end_shift(uid, clock_in), **style_btn).pack(side="left")
+        else:
+            tk.Button(btns, text="Edit",
+                    command=lambda: self.edit_shift(uid, clock_in), **style_btn).pack(side="left")
+        tk.Button(btns, text="Delete",
+                command=lambda: self.delete_shift(uid, clock_in), **style_btn).pack(side="left", padx=(6,0))
 
-        tk.Button(btn_frame, text="Delete",
-                  command=lambda: self.delete_shift(uid, clock_in))\
-          .pack(side="left", padx=5)
-
-        return frame
-
+        return card
 
 
     
@@ -762,85 +1047,108 @@ class AdminApp(tk.Tk):
         if not target:
             return messagebox.showerror("Error", "Shift not found.")
 
+        # Hard block: only finished shifts are editable
+        if not target.get("clock_out"):
+            return messagebox.showwarning(
+                "Editing blocked",
+                "You can only edit finished shifts.\nEnd the shift first."
+            )
+
+        start_dt = _parse_iso(target.get("clock_in"))
+        end_dt   = _parse_iso(target.get("clock_out"))
+        if not start_dt or not end_dt:
+            return messagebox.showerror("Error", "Shift has invalid timestamps.")
+
         win = tk.Toplevel(self)
-        win.title("Edit Shift")
-        win.geometry("350x450")
+        win.title("Edit Finished Shift")
+        win.geometry("360x380")
 
-        # — Location dropdown —
+        # ─ Location
+        tk.Label(win, text="Location").pack(pady=(6,0))
         loc_var = tk.StringVar(value=target.get("location", ""))
-        tk.Label(win, text="Location").pack()
         ttk.Combobox(win, textvariable=loc_var,
-                     values=list(self.task_config.keys())).pack()
+                    values=sorted(self.task_config.keys()),
+                    state="readonly").pack(padx=8)
 
-        # — Task dropdown —
-        initial_task = target.get("task", "")
-        if isinstance(initial_task, dict):
-            initial_task = initial_task.get("name", "")
-        task_var = tk.StringVar(value=initial_task)
-        tk.Label(win, text="Task").pack()
-        ttk.Combobox(win, textvariable=task_var).pack()
+        # ─ Task (depends on location + user's company)
+        tk.Label(win, text="Task").pack(pady=(6,0))
+        task_var = tk.StringVar(value=target.get("task",""))
+        task_cb = ttk.Combobox(win, textvariable=task_var, state="readonly")
+        task_cb.pack(padx=8)
 
-        def update_tasks(*_):
+        def _refresh_tasks(*_):
             loc = loc_var.get()
             comp = user["company"]
             items = self.task_config.get(loc, {}).get(comp, [])
             names = [t["name"] if isinstance(t, dict) else t for t in items]
-            # repopulate
-            task_dropdown = win.children['!combobox2']
-            task_dropdown['values'] = names
+            task_cb["values"] = sorted(names)
             if task_var.get() not in names:
-                task_var.set("")
+                task_var.set(names[0] if names else "")
+        loc_var.trace_add("write", _refresh_tasks)
+        _refresh_tasks()
 
-        loc_var.trace_add("write", update_tasks)
-        update_tasks()
+        # ─ Date (read-only)
+        tk.Label(win, text="Date").pack(pady=(8,0))
+        date_label = tk.Label(win, text=start_dt.strftime("%Y-%m-%d"))
+        date_label.pack()
 
-        # — Clock‐in/out entries —
-        in_var  = tk.StringVar(value=target.get("clock_in",""))
-        out_var = tk.StringVar(value=target.get("clock_out",""))
-        tk.Label(win, text="Clock In (ISO)").pack()
-        tk.Entry(win, textvariable=in_var).pack()
-        tk.Label(win, text="Clock Out (ISO)").pack()
-        tk.Entry(win, textvariable=out_var).pack()
+        # ─ Time inputs (HH:MM only)
+        tk.Label(win, text="Clock-in time (HH:MM)").pack(pady=(8,0))
+        in_time_var = tk.StringVar(value=start_dt.strftime("%H:%M"))
+        tk.Entry(win, textvariable=in_time_var, width=8, justify="center").pack()
 
-        # Lunch Duration only
-        tk.Label(win, text="Lunch Duration (min):").pack()
-        lunch_dur_var = tk.StringVar(
-            value=str(target.get("lunch_minutes", user.get("lunch_minutes", 0)))
-        )
-        tk.Entry(win, textvariable=lunch_dur_var).pack(pady=(0,10))
+        tk.Label(win, text="Clock-out time (HH:MM)").pack(pady=(8,0))
+        out_time_var = tk.StringVar(value=end_dt.strftime("%H:%M"))
+        tk.Entry(win, textvariable=out_time_var, width=8, justify="center").pack()
 
-        # ─── NEW: Commute Duration ───
-        tk.Label(win, text="Commute Duration (min):").pack()
-        commute_var = tk.StringVar(
-            value=str(target.get("commute_minutes", user.get("commute_minutes", 0)))
-        )
-        tk.Entry(win, textvariable=commute_var).pack(pady=(0,10))
-        # ─────────────────────────────
+        # ─ Lunch / Commute (mins)
+        tk.Label(win, text="Lunch (min):").pack(pady=(10,0))
+        lunch_var = tk.StringVar(value=str(target.get("lunch_minutes", user.get("lunch_minutes", 0))))
+        tk.Entry(win, textvariable=lunch_var, width=6).pack()
+
+        tk.Label(win, text="Commute (min):").pack(pady=(10,0))
+        commute_var = tk.StringVar(value=str(target.get("commute_minutes", user.get("commute_minutes", 0))))
+        tk.Entry(win, textvariable=commute_var, width=6).pack()
 
         def save_changes():
+            # validate HH:MM, ints
             try:
-                lm = int(lunch_dur_var.get())
-                if lm < 0: raise ValueError
-                cm = int(commute_var.get())
-                if cm < 0: raise ValueError
-            except ValueError:
-                return messagebox.showerror("Error","Lunch duration must be ≥ 0")
+                ih, im = _parse_hhmm(in_time_var.get())
+                oh, om = _parse_hhmm(out_time_var.get())
+                lm = int(lunch_var.get());  cm = int(commute_var.get())
+                if lm < 0 or cm < 0:
+                    raise ValueError
+            except Exception:
+                return messagebox.showerror("Error", "Use HH:MM for times and non-negative integers for minutes.")
 
-            # apply edits into the shift dict
-            target["location"]      = loc_var.get()
-            target["task"]          = task_var.get()
-            target["clock_in"]      = in_var.get()
-            target["clock_out"]     = out_var.get()
-            target["lunch_minutes"] = lm
+            # rebuild ISO strings using original DATES (keeps cross-midnight shifts intact)
+            new_in  = f"{start_dt.date()} {ih:02d}:{im:02d}"
+            new_out = f"{end_dt.date()} {oh:02d}:{om:02d}"
+
+            new_in_dt  = _parse_iso(new_in)
+            new_out_dt = _parse_iso(new_out)
+            if not new_in_dt or not new_out_dt:
+                return messagebox.showerror("Error", "Failed to parse times.")
+            if new_out_dt < new_in_dt:
+                # If this can happen for overnight shifts, the original end date would already be next day.
+                # With dates preserved, this is a genuine error.
+                return messagebox.showerror("Error", "Clock-out cannot be before clock-in.")
+
+            # apply & save
+            target["location"]        = loc_var.get()
+            target["task"]            = task_var.get()
+            target["clock_in"]        = new_in
+            target["clock_out"]       = new_out
+            target["lunch_minutes"]   = lm
             target["commute_minutes"] = cm
 
-            # write back to disk
             save_employee_logs(user, logs)
             messagebox.showinfo("Saved", "Shift updated.")
             win.destroy()
             self.refresh_shifts()
 
-        tk.Button(win, text="Save", command=save_changes).pack(pady=10)
+        tk.Button(win, text="Save", command=save_changes).pack(pady=12)
+
 
 
     def end_shift(self, user_id, clock_in_time):
@@ -891,166 +1199,194 @@ class AdminApp(tk.Tk):
             messagebox.showerror("Error", f"Failed to remove request:\n{e}")
             
     def create_request_card(self, parent, employee, req, company, filepath):
-        frame = tk.LabelFrame(parent, text=f"📝 Request from {employee}", bg="white", font=("Helvetica", 12, "bold"), padx=10, pady=5)
+        """
+        Sleek card for a single request, with status chip, tidy details, and actions.
+        """
+        # ── palette
+        APP_BG     = self["bg"] if self["bg"] else "#f4f4f4"
+        CARD_BG    = "#ffffff"
+        BORDER     = "#d6dbe3"
+        HEADER_BG  = "#e9f0f8"
+        TEXT       = "#1f2937"
+        MUTED      = "#6b7280"
+        CHIP_BG    = {"pending": "#fde68a", "approved": "#d1fae5", "rejected": "#fee2e2"}
+        CHIP_FG    = {"pending": "#92400e", "approved": "#065f46", "rejected": "#991b1b"}
+
+        # helpers for file update
         orig_start = req.get("requested_start")
-        orig_end = req.get("requested_end")
-        
-        def handle_finalize_click():
-            status = req.get("status", "").lower()
-            if status == "approved":
-                self.finalize_request(req, employee, company, filepath)
-            elif status == "rejected":
-                confirm = messagebox.askyesno("Confirm Removal", f"Are you sure you want to delete the request from {employee}?")
-                if confirm:
-                    self.remove_request(req, filepath)
-                    self.show_handle_requests()
-            else:
-                messagebox.showwarning("Pending", "Please approve or reject the request before proceeding.")
+        orig_end   = req.get("requested_end")
 
-
-        btn_label = "Finalize" if req.get("status", "").lower() == "approved" else "Remove" if req.get("status", "").lower() == "rejected" else "Finalize"
-        finalize_btn = tk.Button(frame, text=btn_label, command=handle_finalize_click)
-
-        finalize_btn.pack(pady=5)
-
-        # Status management
-        def update_status(event):
-            new_status = status_var.get().lower()
-            req["status"] = new_status
-            update_request_file(orig_start, orig_end)
-            update_status_color()
-            finalize_btn.config(text="Finalize" if new_status == "approved" else "Remove" if new_status == "rejected" else "Finalize")
-
-        def update_request_file(orig_start, orig_end):
+        def update_request_file():
             with open(filepath, 'r', encoding='utf-8') as f:
                 all_requests = json.load(f)
-
             for r in all_requests:
                 if r.get("requested_start") == orig_start and r.get("requested_end") == orig_end:
                     r.update(req)
                     break
-
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(all_requests, f, indent=4)
 
-        def update_status_color():
-            status_color = {
-                "pending": "#ffa500",
-                "approved": "#28a745",
-                "rejected": "#dc3545"
-            }.get(req.get("status", "pending").lower(), "gray")
-            status_label.config(fg=status_color)
+        # header/status helpers
+        def status_colors(st):
+            st = (st or "pending").lower()
+            return CHIP_BG.get(st, "#e5e7eb"), CHIP_FG.get(st, "#374151"), st
 
+        # ── outer & card
+        outer = tk.Frame(parent, bg=APP_BG)
+        card  = tk.Frame(outer, bg=CARD_BG, highlightthickness=1,
+                        highlightbackground=BORDER, highlightcolor=BORDER)
+        card.pack(fill="both", expand=True)
 
+        # header
+        header = tk.Frame(card, bg=HEADER_BG)
+        header.pack(fill="x")
+        tk.Label(header, text=f"📝 {employee}", font=("Helvetica", 12, "bold"),
+                bg=HEADER_BG, fg=TEXT, pady=8).pack(side="left", padx=10)
 
+        chip_bg, chip_fg, curr_status = status_colors(req.get("status"))
+        status_chip = tk.Label(header, text=curr_status.upper(), font=("Helvetica", 9, "bold"),
+                            bg=chip_bg, fg=chip_fg, padx=8, pady=2)
+        status_chip.pack(side="right", padx=10)
+
+        # thin accent
+        tk.Frame(card, height=2, bg="#3b82f6").pack(fill="x")
+
+        # body
+        body = tk.Frame(card, bg=CARD_BG)
+        body.pack(fill="both", expand=True, padx=12, pady=10)
+
+        # small util to make one line
+        def line(label, value, italic=False):
+            row = tk.Frame(body, bg=CARD_BG); row.pack(fill="x", pady=2)
+            tk.Label(row, text=f"{label}:", bg=CARD_BG, fg=MUTED,
+                    font=("Helvetica", 10, "italic" if italic else "normal")).pack(side="left")
+            tk.Label(row, text=value, bg=CARD_BG, fg=TEXT,
+                    font=("Helvetica", 10, "italic" if italic else "normal")).pack(side="left", padx=(6,0))
+
+        # fields
+        line("Company",  company)
+        line("Location", req.get("location", "N/A"))
+        line("Task",     req.get("task", "N/A"))
+        line("Start",    self.format_time_readable(req.get("requested_start")), italic=True)
+        line("End",      self.format_time_readable(req.get("requested_end")),   italic=True)
+
+        # chips row (commute/lunch)
+        chips = tk.Frame(body, bg=CARD_BG); chips.pack(fill="x", pady=(6,2))
+        def chip(txt):
+            tk.Label(chips, text=txt, bg="#f3f4f6", fg="#374151",
+                    font=("Helvetica", 9), padx=8, pady=2).pack(side="left", padx=(0,6))
+        chip(f"Commute {req.get('commute_minutes', 0)}m")
+        chip(f"Lunch {req.get('lunch_minutes', 0)}m")
+
+        # reason (wrap)
+        if req.get("reason"):
+            reason = tk.Label(body, text=f"“{req['reason']}”", bg=CARD_BG, fg=MUTED,
+                            font=("Helvetica", 10, "italic"), justify="left", wraplength=380)
+            reason.pack(fill="x", pady=(4, 2))
+
+        # actions row
+        actions = tk.Frame(card, bg=CARD_BG); actions.pack(fill="x", padx=10, pady=10)
+
+        # status dropdown
+        tk.Label(actions, text="Set status:", bg=CARD_BG).pack(side="left", padx=(0,6))
+        status_var = tk.StringVar(value=curr_status.capitalize())
+        status_dd  = ttk.Combobox(actions, textvariable=status_var,
+                                values=["Pending", "Approved", "Rejected"], state="readonly", width=12)
+        status_dd.pack(side="left")
+
+        # finalize/remove button (label depends on status)
+        def refresh_status_ui():
+            bg, fg, st = status_colors(status_var.get())
+            status_chip.config(text=st.upper(), bg=bg, fg=fg)
+            finalize_btn.config(text=("Finalize" if st == "approved" else "Remove" if st == "rejected" else "Finalize"))
+
+        def on_status_change(_=None):
+            req["status"] = status_var.get().lower()
+            update_request_file()
+            refresh_status_ui()
+
+        status_dd.bind("<<ComboboxSelected>>", on_status_change)
+
+        # Edit dialog (same logic you had)
         def edit_request():
             original_start = req["requested_start"]
             original_end   = req["requested_end"]
             edit_win = tk.Toplevel(self)
             edit_win.title("Edit Request")
-            edit_win.geometry("400x450")
+            edit_win.geometry("400x470")
 
-            # — Location — (you already have this)
             tk.Label(edit_win, text="Location:").pack()
             location_var = tk.StringVar(value=req.get("location", ""))
             location_dropdown = ttk.Combobox(edit_win, textvariable=location_var, state="readonly")
             location_dropdown['values'] = sorted(self.task_config.keys())
             location_dropdown.pack()
 
-            # — Task — (you already have this)
             tk.Label(edit_win, text="Task:").pack()
             task_var = tk.StringVar(value=req.get("task", ""))
             task_dropdown = ttk.Combobox(edit_win, textvariable=task_var, state="readonly")
             task_dropdown.pack()
-            # … your update_tasks binding …
 
-            # — Start & End — (you already have these)
-            start_entry  = DateAndTime(edit_win)
-            start_entry.insert(0, req["requested_start"])
             tk.Label(edit_win, text="Start Time").pack()
-            start_entry.pack()
+            start_entry = DateAndTime(edit_win); start_entry.insert(0, req["requested_start"]); start_entry.pack()
 
-            end_entry    = DateAndTime(edit_win)
-            end_entry.insert(0, req["requested_end"])
             tk.Label(edit_win, text="End Time").pack()
-            end_entry.pack()
+            end_entry = DateAndTime(edit_win); end_entry.insert(0, req["requested_end"]); end_entry.pack()
 
-            # — Reason — (you already have this)
             tk.Label(edit_win, text="Reason:").pack()
-            reason_entry = tk.Entry(edit_win)
-            reason_entry.insert(0, req.get("reason",""))
-            reason_entry.pack(pady=(0,10))
+            reason_entry = tk.Entry(edit_win); reason_entry.insert(0, req.get("reason","")); reason_entry.pack(pady=(0,10))
 
-            # ─── NEW: Commute & Lunch ───
             tk.Label(edit_win, text="Commute both ways (min):").pack()
-            commute_var  = tk.StringVar(value=str(req.get("commute_minutes", 0)))
-            commute_entry = tk.Entry(edit_win, textvariable=commute_var)
-            commute_entry.pack(pady=(0,10))
+            commute_var = tk.StringVar(value=str(req.get("commute_minutes", 0)))
+            tk.Entry(edit_win, textvariable=commute_var).pack(pady=(0,8))
 
             tk.Label(edit_win, text="Lunch (min):").pack()
-            lunch_var    = tk.StringVar(value=str(req.get("lunch_minutes", 0)))
-            lunch_entry  = tk.Entry(edit_win, textvariable=lunch_var)
-            lunch_entry.pack(pady=(0,10))
-            # ──────────────────────────────
+            lunch_var = tk.StringVar(value=str(req.get("lunch_minutes", 0)))
+            tk.Entry(edit_win, textvariable=lunch_var).pack(pady=(0,12))
 
             def save_changes():
-                # 1) read & validate commute/lunch
                 try:
                     req["commute_minutes"] = int(commute_var.get())
                     req["lunch_minutes"]   = int(lunch_var.get())
                 except ValueError:
                     return messagebox.showerror("Error", "Commute and Lunch must be integers.")
 
-                # 2) write back all the other fields
                 req["location"]        = location_var.get()
                 req["task"]            = task_var.get()
                 req["requested_start"] = start_entry.get()
                 req["requested_end"]   = end_entry.get()
                 req["reason"]          = reason_entry.get()
 
-                # 3) update the JSON file
-                update_request_file(original_start, original_end)
+                update_request_file()
                 messagebox.showinfo("Updated", "Request updated successfully.")
                 edit_win.destroy()
+                # redraw the whole page to reflect changes
                 self.show_handle_requests()
 
             tk.Button(edit_win, text="Save", command=save_changes).pack(pady=10)
 
+        # finalize/remove behavior
+        def handle_finalize():
+            st = status_var.get().lower()
+            if st == "approved":
+                self.finalize_request(req, employee, company, filepath)
+            elif st == "rejected":
+                if messagebox.askyesno("Confirm Removal",
+                                    f"Are you sure you want to delete the request from {employee}?"):
+                    self.remove_request(req, filepath)
+                    self.show_handle_requests()
+            else:
+                messagebox.showwarning("Pending", "Please approve or reject the request first.")
 
+        finalize_btn = tk.Button(actions, text=("Finalize" if curr_status == "approved" else
+                                                "Remove"   if curr_status == "rejected" else "Finalize"),
+                                command=handle_finalize, font=("Helvetica", 10), padx=10, pady=2)
+        finalize_btn.pack(side="right")
 
+        tk.Button(actions, text="Edit", command=edit_request,
+                font=("Helvetica", 10), padx=10, pady=2).pack(side="right", padx=(0,8))
 
-        # Status widgets
-        status_label = tk.Label(frame, text=f"Status:", font=("Helvetica", 11, "bold"), bg="white", anchor="w")
-        status_label.pack(anchor="w")
-        status_var = tk.StringVar(value=req.get("status", "pending").capitalize())
-        status_dropdown = ttk.Combobox(frame, textvariable=status_var, state="readonly", values=["Pending", "Approved", "Rejected"])
-        status_dropdown.pack(anchor="w")
-        status_dropdown.bind("<<ComboboxSelected>>", update_status)
-        update_status_color()
+        return outer
 
-        # now including commute & lunch
-        fields = [
-        ("Reason",          req.get("reason", "N/A")),
-        ("Company",         company),
-        ("Location",        req.get("location", "N/A")),
-        ("Task",            req.get("task",     "N/A")),
-        ("Start",           self.format_time_readable(req.get("requested_start"))),
-        ("End",             self.format_time_readable(req.get("requested_end"))),
-        ("Commute (min)",   req.get("commute_minutes", 0)),
-        ("Lunch (min)",     req.get("lunch_minutes",   0)),
-        ]
-        for label, val in fields:
-            tk.Label(frame, text=f"{label}: {val}",
-                    font=("Helvetica",11), bg="white", anchor="w")\
-            .pack(anchor="w")
-
-        # Buttons
-        btn_frame = tk.Frame(frame, bg="white")
-        btn_frame.pack(pady=5, anchor="w")
-
-        tk.Button(btn_frame, text="Edit", command=edit_request).pack(side="left", padx=5)
-
-        return frame
             
     def finalize_request(self, req, employee, company, filepath):
         def parse_dt(s):
@@ -1244,6 +1580,114 @@ class AdminApp(tk.Tk):
         tk.Button(btn_frame, text="Delete User", command=delete_user).pack(side="left", padx=5)
 
 
+    def _build_styles(self):
+        """Light modern styling for headings and filter widgets."""
+        style = ttk.Style(self)
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
+
+        self.APP_BG   = self["bg"] if self["bg"] else "#f4f4f4"
+        self.PILL_BG  = "#eef3fb"
+        self.BORDER   = "#d6dbe3"
+        self.TEXT     = "#1f2937"
+        self.MUTED    = "#556987"
+        self.ACCENT   = "#2d6cdf"
+        self.NAV_BG   = "#e9f0f8"   # header background
+        self.NAV_TEXT = self.TEXT
+
+        # Header frame style
+        style.configure("NavBar.TFrame", background=self.NAV_BG)
+
+        # Base nav button
+        style.configure(
+            "Nav.TButton",
+            font=("Helvetica", 11, "bold"),
+            padding=(14, 8),
+            relief="flat",
+            borderwidth=0
+        )
+        # Hover/pressed feedback
+        style.map(
+            "Nav.TButton",
+            foreground=[("active", self.NAV_TEXT)],
+        )
+
+        # Active tab: accent text (underline handled in layout)
+        style.configure(
+            "Nav.Active.TButton",
+            font=("Helvetica", 11, "bold"),
+            padding=(14, 8),
+            relief="flat",
+            borderwidth=0,
+            foreground=self.ACCENT
+        )
+
+        style.configure("Heading.TLabel",
+            font=("Helvetica", 16, "bold"),
+            foreground=self.TEXT,
+            background=self.APP_BG,
+        )
+        style.configure("FilterLabel.TLabel",
+            font=("Helvetica", 9, "bold"),
+            foreground=self.MUTED,
+            background=self.PILL_BG,
+        )
+        # ttk on Windows ignores some bg props, but padding/relief still help
+        style.configure("Filter.TCombobox",
+            padding=6,
+            relief="flat",
+        )
+        style.map("Filter.TCombobox",
+            foreground=[("disabled", "#9aa5b1")],
+        )
+
+        # Cards toolbars / search / tiny buttons
+        style.configure("CardToolbar.TFrame", background="#ffffff")
+
+        style.configure("Search.TEntry", padding=6, relief="flat")
+
+        style.configure("Ghost.TButton",
+            padding=(10, 4),
+            font=("Helvetica", 10),
+            relief="flat",
+            borderwidth=0,
+        )
+        style.map("Ghost.TButton",
+            background=[("active", "#f3f4f6")],
+        )
+
+    def _searchbar(self, parent, var, on_change):
+        """Tiny search row with a magnifying-glass + Entry. Calls on_change on every keystroke."""
+        row = ttk.Frame(parent, style="CardToolbar.TFrame")
+        row.pack(fill="x")
+        tk.Label(row, text="🔎", bg="#ffffff").pack(side="left", padx=(2, 6))
+        ent = ttk.Entry(row, textvariable=var, style="Search.TEntry")
+        ent.pack(side="left", fill="x", expand=True)
+        ent.bind("<KeyRelease>", on_change)
+
+    def _crud_bar(self, parent, add, edit, delete):
+        """Minimal Add/Edit/Delete row."""
+        bar = ttk.Frame(parent, style="CardToolbar.TFrame")
+        bar.pack(fill="x", pady=(4, 0))
+        ttk.Button(bar, text="➕ Add",  style="Ghost.TButton", command=add).pack(side="left", padx=4)
+        ttk.Button(bar, text="✏️ Edit", style="Ghost.TButton", command=edit).pack(side="left", padx=4)
+        ttk.Button(bar, text="🗑 Delete", style="Ghost.TButton", command=delete).pack(side="left", padx=4)
+
+
+    def _toolbar(self, parent):
+        """
+        A horizontal bar with left area for chips and right area for action buttons.
+        Returns (left_frame, right_frame).
+        """
+        bar = tk.Frame(parent, bg=self.APP_BG)
+        bar.pack(fill="x", padx=10, pady=(8, 4))
+        left = tk.Frame(bar, bg=self.APP_BG)
+        left.pack(side="left", fill="x", expand=True)
+        right = tk.Frame(bar, bg=self.APP_BG)
+        right.pack(side="right")
+        return left, right
 
     def on_loc_selected(self, evt):
         sel = self.loc_lb.get(self.loc_lb.curselection())
@@ -1259,64 +1703,88 @@ class AdminApp(tk.Tk):
                 self.user_lb.insert("end", f"{u['id']}: {u['name']}")
         # clear any selection so downstream edits don’t break
         self.current_user = None
+    def _scrolled_listbox(self, parent, *, height=12):
+        """Compact listbox + vertical scrollbar that doesn't grow vertically."""
+        wrap = tk.Frame(parent, bg="#ffffff")
+        wrap.pack(fill="x", padx=2, pady=(4, 6))  # no expand, only width
+        lb = tk.Listbox(wrap, exportselection=False, height=height)
+        lb.pack(side="left", fill="x", expand=True)
+        sb = ttk.Scrollbar(wrap, orient="vertical", command=lb.yview)
+        sb.pack(side="right", fill="y")
+        lb.configure(yscrollcommand=sb.set)
+        return lb
+
 
     def build_hierarchical_db_tab(self, parent):
+        # Title + breadcrumb
+        ttk.Label(parent, text="Database Manager", style="Heading.TLabel") \
+            .pack(anchor="w", padx=12, pady=(12, 6))
+        self.breadcrumb_var = tk.StringVar(value="— Configure Locations, Companies, Tasks and Users here —")
+        ttk.Label(parent, textvariable=self.breadcrumb_var, style="FilterLabel.TLabel") \
+            .pack(anchor="w", padx=12, pady=(0, 6))
 
-        # ─ Layout ─────────────────────────────────────────────────────────────
-        left  = tk.Frame(parent); left.grid(row=0, column=0, sticky="ns")
-        mid   = tk.Frame(parent); mid .grid(row=0, column=1, sticky="ns")
-        right = tk.Frame(parent); right.grid(row=0, column=2, sticky="ns")
-        usersc= tk.Frame(parent); usersc.grid(row=0, column=3, sticky="ns", padx=10)
+        # Compact grid: horizontal only, anchored to top
+        grid = tk.Frame(parent, bg=self.APP_BG)
+        grid.pack(fill="x", anchor="n", padx=10, pady=10)       # <- no vertical expand
+        for i in range(4):
+            grid.grid_columnconfigure(i, weight=1, uniform="col")
+        grid.grid_rowconfigure(0, weight=0)                     # <- don't stretch vertically
 
-        # ─ Locations ──────────────────────────────────────────────────────────
-        tk.Label(left, text="Locations", font=("Helvetica", 12, "bold")).pack(pady=(5,2))
-        self.loc_lb = tk.Listbox(left, width=40, exportselection=False); self.loc_lb.pack(fill="both", expand=True)
-        tk.Button(left,  text="Add Loc",    command=self.add_location).pack(fill="x")
-        tk.Button(left,  text="Edit Loc",   command=self.edit_location).pack(fill="x")
-        tk.Button(left,  text="Delete Loc", command=self.delete_location).pack(fill="x")
+        # ── Locations ──────────────────────────────────────────────────────
+        outer_l, body_l = self._section_card(grid, "Locations")
+        outer_l.grid(row=0, column=0, sticky="new", padx=6, pady=6)   # <- only N/E/W
+        self.loc_query = tk.StringVar()
+        self._searchbar(body_l, self.loc_query, lambda *_: self.refresh_locations())
+        self.loc_lb = self._scrolled_listbox(body_l, height=12)       # <- compact with scrollbar
         self.loc_lb.bind("<<ListboxSelect>>", self.on_loc_selected)
+        self._crud_bar(body_l, add=self.add_location, edit=self.edit_location, delete=self.delete_location)
 
-        # ─ Companies ─────────────────────────────────────────────────────────
-        tk.Label(mid, text="Companies", font=("Helvetica", 12, "bold")).pack(pady=(5,2))
-        self.comp_lb = tk.Listbox(mid, width=30, exportselection=False); self.comp_lb.pack(fill="both", expand=True)
-        tk.Button(mid,  text="Add Comp",    command=self.add_company).pack(fill="x")
-        tk.Button(mid,  text="Edit Comp",   command=self.edit_company).pack(fill="x")
-        tk.Button(mid,  text="Delete Comp", command=self.delete_company).pack(fill="x")
+        # ── Companies ─────────────────────────────────────────────────────
+        outer_c, body_c = self._section_card(grid, "Companies")
+        outer_c.grid(row=0, column=1, sticky="new", padx=6, pady=6)
+        self.comp_query = tk.StringVar()
+        self._searchbar(body_c, self.comp_query, lambda *_: self.refresh_companies())
+        self.comp_lb = self._scrolled_listbox(body_c, height=12)
         self.comp_lb.bind("<<ListboxSelect>>", self.on_comp_selected)
+        self._crud_bar(body_c, add=self.add_company, edit=self.edit_company, delete=self.delete_company)
 
-        # ─ Tasks ─────────────────────────────────────────────────────────────
-        tk.Label(right, text="Tasks", font=("Helvetica", 12, "bold")).pack(pady=(5,2))
-        self.task_lb = tk.Listbox(right, width=40, exportselection=False); self.task_lb.pack(fill="both", expand=True)
-        tk.Button(right, text="Add Task",    command=self.add_task).pack(fill="x")
-        tk.Button(right, text="Edit Task",   command=self.edit_task).pack(fill="x")
-        tk.Button(right, text="Delete Task", command=self.delete_task).pack(fill="x")
+        # ── Tasks ──────────────────────────────────────────────────────────
+        outer_t, body_t = self._section_card(grid, "Tasks")
+        outer_t.grid(row=0, column=2, sticky="new", padx=6, pady=6)
+        self.task_query = tk.StringVar()
+        self._searchbar(body_t, self.task_query, lambda *_: self.refresh_tasks())
+        self.task_lb = self._scrolled_listbox(body_t, height=12)
+        self._crud_bar(body_t, add=self.add_task, edit=self.edit_task, delete=self.delete_task)
 
-        # ─ Users Panel ───────────────────────────────────────────────────────
-        tk.Label(usersc, text="Users", font=("Helvetica", 14, "bold")).pack(pady=(5,10))
+        # ── Users ──────────────────────────────────────────────────────────
+        outer_u, body_u = self._section_card(grid, "Users")
+        outer_u.grid(row=0, column=3, sticky="new", padx=6, pady=6)
 
-        tk.Label(usersc, text="Filter by Company:").pack(anchor="w", padx=5)
-        all_comps = sorted({c for loc in self.task_config for c in self.task_config[loc]})
+        top = ttk.Frame(body_u, style="CardToolbar.TFrame")
+        top.pack(fill="x", pady=(0, 6))
+        ttk.Label(top, text="Company", style="FilterLabel.TLabel").pack(side="left", padx=(0, 6))
         self.user_company_var = tk.StringVar()
-        self.user_company_combo = ttk.Combobox(
-            usersc, textvariable=self.user_company_var,
-            values=all_comps, state="readonly"
-        )
-        self.user_company_combo.pack(fill="x", padx=5)
+        self.user_company_combo = ttk.Combobox(top, textvariable=self.user_company_var,
+                                            state="readonly", width=28)
+        self.user_company_combo.pack(side="left", fill="x", expand=True)
         self.user_company_combo.bind("<<ComboboxSelected>>", self.on_user_company_selected)
 
-        tk.Label(usersc, text="Employee List:").pack(anchor="w", padx=5, pady=(10,0))
-        self.user_lb = tk.Listbox(usersc, exportselection=False, height=12)
-        self.user_lb.pack(fill="both", expand=True, padx=5, pady=(2,10))
+        self.user_lb = self._scrolled_listbox(body_u, height=12)
+        btnf = ttk.Frame(body_u, style="CardToolbar.TFrame"); btnf.pack(fill="x")
+        ttk.Button(btnf, text="Add User",    style="Ghost.TButton", command=self.add_user).pack(side="left", padx=4)
+        ttk.Button(btnf, text="Edit User",   style="Ghost.TButton", command=self.edit_user).pack(side="left", padx=4)
+        ttk.Button(btnf, text="Delete User", style="Ghost.TButton", command=self.delete_user).pack(side="left", padx=4)
 
-        # ─ Create / Edit / Delete Buttons ───────────────────────────────────
-        btnf = tk.Frame(usersc)
-        btnf.pack(fill="x", padx=5, pady=(0,10))
-        tk.Button(btnf, text="Add User",  command=self.add_user).pack(side="left",  expand=True)
-        tk.Button(btnf, text="Edit User", command=self.edit_user).pack(side="left",  expand=True)
-        tk.Button(btnf, text="Delete User", command=self.delete_user).pack(side="left", expand=True)
-
-        # finally, populate the first list
+        # Initial load
         self.refresh_locations()
+
+        # Populate the Users company filter with *all* companies initially
+        all_comps = sorted({c for locmap in self.task_config.values() for c in locmap.keys()})
+        self.user_company_combo["values"] = all_comps
+        self.user_company_var.set(all_comps[0] if all_comps else "")
+        self.on_user_company_selected()
+
+
 
 
     # ────────────────────────────────────────────────────────────────────
@@ -1324,14 +1792,16 @@ class AdminApp(tk.Tk):
     # ────────────────────────────────────────────────────────────────────
 
     def refresh_locations(self):
-        """Reload the listbox of locations from disk."""
         self.task_config = load_task_config()
+        q = (self.loc_query.get().lower() if hasattr(self, "loc_query") else "")
         self.loc_lb.delete(0, "end")
         for loc in sorted(self.task_config):
+            if q and q not in loc.lower():
+                continue
             self.loc_lb.insert("end", loc)
-        # clear downstream panels
-        self.comp_lb.delete(0, "end")
-        self.task_lb.delete(0, "end")
+        # Clear downstream lists
+        if hasattr(self, "comp_lb"): self.comp_lb.delete(0, "end")
+        if hasattr(self, "task_lb"): self.task_lb.delete(0, "end")
 
     def add_location(self):
         """Popup to create a new location."""
@@ -1408,19 +1878,16 @@ class AdminApp(tk.Tk):
     # ────────────────────────────────────────────────────────────────────
 
     def refresh_companies(self):
-        """Reload the company listbox for the currently selected location."""
-        # reload config in case anything changed
         self.task_config = load_task_config()
-
-        # clear old entries
         self.comp_lb.delete(0, "end")
-        self.task_lb.delete(0, "end")  # clear tasks too
-
-        sel = self.loc_lb.curselection()
+        self.task_lb.delete(0, "end")
+        sel = getattr(self, "current_loc", None)
         if not sel:
             return
-        loc = self.loc_lb.get(sel)
-        for comp in sorted(self.task_config.get(loc, {})):
+        q = (self.comp_query.get().lower() if hasattr(self, "comp_query") else "")
+        for comp in sorted(self.task_config.get(sel, {})):
+            if q and q not in comp.lower():
+                continue
             self.comp_lb.insert("end", comp)
 
     def add_company(self):
@@ -1513,19 +1980,17 @@ class AdminApp(tk.Tk):
     # ────────────────────────────────────────────────────────────────────
 
     def refresh_tasks(self):
-        """Reload the task list for the currently selected location+company."""
         self.task_lb.delete(0, "end")
         loc  = getattr(self, "current_loc", None)
         comp = getattr(self, "current_comp", None)
-        if not loc or not comp:
+        if not (loc and comp):
             return
-
+        q = (self.task_query.get().lower() if hasattr(self, "task_query") else "")
         for item in self.task_config[loc][comp]:
-            # each task is a dict { "name":…, "completed":… }
-            name      = item["name"]
-            completed = item.get("completed", False)
-            # append a checkmark if it's completed
-            display = f"{name}{' ✓' if completed else ''}"
+            name = item["name"]
+            if q and q not in name.lower():
+                continue
+            display = f"{name}{' ✓' if item.get('completed', False) else ''}"
             self.task_lb.insert("end", display)
 
     def add_task(self):
