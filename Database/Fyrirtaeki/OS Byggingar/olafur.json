@@ -18,8 +18,11 @@
     {
         "task": "A\u00f0st\u00f6\u00f0usk\u00f6pun, rekstur og stj\u00f3rnun",
         "location": "Dalshverfi III, 230 Reykjanes",
-        "clock_in": "2025-08-14T23:34:00",
-        "commute": 100
+        "clock_in": "2025-08-14 08:00",
+        "commute": 100,
+        "lunch_minutes": 30,
+        "clock_out": "2025-08-14 21:00",
+        "commute_minutes": 100
     },
     {
         "clock_in": "2025-08-15 01:04",

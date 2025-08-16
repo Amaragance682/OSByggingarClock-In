@@ -471,6 +471,9 @@ class AdminApp(tk.Tk):
         else:
             start_date = today
 
+        # build an inclusive datetime window for overlap tests
+        window_start = datetime.combine(start_date, datetime.min.time())
+        window_end   = datetime.now()  # up to 'now' is fine
 
         # 4) always drive the dropdowns from the in‑memory config
         cfg = self.task_config
@@ -518,24 +521,23 @@ class AdminApp(tk.Tk):
         active, finished = [], []
         for u in users:
             for log in load_employee_logs(u):
-                start_dt = _parse_iso(log.get("clock_in"))
-                if not start_dt:
-                    continue  # skip malformed rows
-                dt = start_dt.date()
-                
-                if not (start_date <= dt <= today):
+                s = _parse_iso(log.get("clock_in"))
+                e = _parse_iso(log.get("clock_out")) or datetime.now()  # open shifts end 'now'
+                if not s:
                     continue
-                if loc_filter!="Any" and log.get("location")!=loc_filter:
+
+                # location / task filters still apply
+                if loc_filter != "Any" and log.get("location") != loc_filter:
                     continue
-                if task_filter!="Any" and log.get("task")!=task_filter:
+                if task_filter != "Any" and log.get("task") != task_filter:
+                    continue
+
+                # keep only shifts whose interval overlaps the selected window
+                # (this ALSO keeps all active shifts regardless of when they started)
+                if e < window_start or s > window_end:
                     continue
 
                 end = log.get("clock_out")
-                duration = (
-                    format_duration(log["clock_in"], now_trimmed(), ongoing=True)
-                    if end is None
-                    else format_duration(log["clock_in"], end)
-                )
                 rec = {
                     "name":            u["name"],
                     "uid":             u["id"],
@@ -544,10 +546,10 @@ class AdminApp(tk.Tk):
                     "clock_in":        log["clock_in"],
                     "clock_out":       end,
                     "lunch_minutes":   log.get("lunch_minutes", u.get("lunch_minutes", 0)),
-                    # ← NEW: grab one-way commute from the log (or default user commute)
-                    "commute_minutes": log.get("commute_minutes", u.get("commute_minutes", 0))
+                    "commute_minutes": log.get("commute_minutes", u.get("commute_minutes", 0)),
                 }
                 (finished if end else active).append(rec)
+
 
         def mark_conflict_groups(recs):
             # bucket by (user_id, date)
@@ -1111,7 +1113,6 @@ class AdminApp(tk.Tk):
         tk.Entry(win, textvariable=commute_var, width=6).pack()
 
         def save_changes():
-            # validate HH:MM, ints
             try:
                 ih, im = _parse_hhmm(in_time_var.get())
                 oh, om = _parse_hhmm(out_time_var.get())
@@ -1121,24 +1122,33 @@ class AdminApp(tk.Tk):
             except Exception:
                 return messagebox.showerror("Error", "Use HH:MM for times and non-negative integers for minutes.")
 
-            # rebuild ISO strings using original DATES (keeps cross-midnight shifts intact)
-            new_in  = f"{start_dt.date()} {ih:02d}:{im:02d}"
-            new_out = f"{end_dt.date()} {oh:02d}:{om:02d}"
+            # Rebuild datetimes from the *start day*, not the stale end day.
+            start_date = start_dt.date()
+            new_in_dt  = datetime.combine(start_date, datetime.min.time()).replace(hour=ih, minute=im)
+            new_out_dt = datetime.combine(start_date, datetime.min.time()).replace(hour=oh, minute=om)
 
-            new_in_dt  = _parse_iso(new_in)
-            new_out_dt = _parse_iso(new_out)
-            if not new_in_dt or not new_out_dt:
-                return messagebox.showerror("Error", "Failed to parse times.")
-            if new_out_dt < new_in_dt:
-                # If this can happen for overnight shifts, the original end date would already be next day.
-                # With dates preserved, this is a genuine error.
-                return messagebox.showerror("Error", "Clock-out cannot be before clock-in.")
+            # Smart overnight rule: if out <= in, it ends next day.
+            if new_out_dt <= new_in_dt:
+                new_out_dt += timedelta(days=1)
 
-            # apply & save
+            # Optional guard-rail against zombie shifts (tweak hours to taste)
+            MAX_SHIFT_HOURS = 20
+            if (new_out_dt - new_in_dt) > timedelta(hours=MAX_SHIFT_HOURS):
+                # Choose one behavior:
+                # 1) clamp silently:
+                # new_out_dt = new_in_dt + timedelta(hours=MAX_SHIFT_HOURS)
+                # 2) or block with an error:
+                return messagebox.showerror(
+                    "Too long",
+                    f"Edited shift would be {(new_out_dt - new_in_dt).seconds//3600}h. "
+                    f"Please keep it under {MAX_SHIFT_HOURS} hours."
+                )
+
+            # Apply & save
             target["location"]        = loc_var.get()
             target["task"]            = task_var.get()
-            target["clock_in"]        = new_in
-            target["clock_out"]       = new_out
+            target["clock_in"]        = new_in_dt.strftime("%Y-%m-%d %H:%M")
+            target["clock_out"]       = new_out_dt.strftime("%Y-%m-%d %H:%M")
             target["lunch_minutes"]   = lm
             target["commute_minutes"] = cm
 
@@ -1147,7 +1157,8 @@ class AdminApp(tk.Tk):
             win.destroy()
             self.refresh_shifts()
 
-        tk.Button(win, text="Save", command=save_changes).pack(pady=12)
+
+        tk.Button(win, text="Save", width=12, height=2, command=save_changes).pack(pady=12)
 
 
 
