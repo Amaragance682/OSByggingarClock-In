@@ -1,3 +1,4 @@
+import uuid
 import tkinter as tk
 from lib.dateandtime import DateAndTime
 from collections import defaultdict
@@ -10,6 +11,7 @@ from datetime import datetime, timedelta
 
 
 from lib.utils import (
+    get_user_by_id,
     load_users,
     load_task_config,
     load_employee_logs,
@@ -389,6 +391,7 @@ class AdminApp(tk.Tk):
             clock_out_dt += timedelta(days=1)  # overnight
 
         entry = {
+            "id": str(uuid.uuid4()),
             "clock_in":        clock_in_dt.strftime("%Y-%m-%d %H:%M"),
             "clock_out":       clock_out_dt.strftime("%Y-%m-%d %H:%M"),
             "task":            task_var.get(),
@@ -703,7 +706,12 @@ class AdminApp(tk.Tk):
                 if not filename.endswith("_requests.json"):
                     continue
 
-                employee_name = filename.replace("_requests.json", "")
+                employee_id = filename.replace("_requests.json", "")
+                user = get_user_by_id(employee_id, self.users)
+                if user is None:
+                    employee_name = employee_id
+                else:
+                    employee_name = user["name"]
                 filepath = os.path.join(company_path, filename)
 
                 try:
@@ -1420,6 +1428,7 @@ class AdminApp(tk.Tk):
             return
 
         new_entry = {
+            "id": str(uuid.uuid4()),
             "task": req["task"],
             "location": req["location"],
             "clock_in": req["requested_start"],
@@ -1495,9 +1504,7 @@ class AdminApp(tk.Tk):
 
         # ─────────────── right: form ───────────────
         # ID
-        tk.Label(parent, text="ID").grid(row=0, column=1, sticky="w")
-        id_var = tk.StringVar()
-        tk.Entry(parent, textvariable=id_var).grid(row=0, column=2, sticky="ew")
+        id_var = str(uuid.uuid4())
 
         # Name
         tk.Label(parent, text="Name").grid(row=1, column=1, sticky="w")
@@ -1533,7 +1540,7 @@ class AdminApp(tk.Tk):
         def on_select(evt):
             idx = listbox.curselection()[0]
             user = self.users[idx]
-            id_var.set(user["id"])
+            id_var = user["id"]
             name_var.set(user["name"])
             comp_var.set(user["company"])
             pin_var.set(user["pin"])
@@ -1544,7 +1551,7 @@ class AdminApp(tk.Tk):
 
         def save_user():
             # basic presence check
-            if not (id_var.get() and name_var.get() and comp_var.get() and pin_var.get()
+            if not (name_var.get() and comp_var.get() and pin_var.get()
                     and commute_var.get() and lunch_var.get()):
                 return messagebox.showerror("Error", "All fields required.")
 
@@ -1558,7 +1565,7 @@ class AdminApp(tk.Tk):
                 return messagebox.showerror("Error", "Commute and Lunch must be non-negative integers.")
 
             new = {
-                "id":               id_var.get(),
+                "id":               id_var,
                 "name":             name_var.get(),
                 "company":          comp_var.get(),
                 "pin":              pin_var.get(),
@@ -1581,7 +1588,7 @@ class AdminApp(tk.Tk):
             self.show_edit_database()
 
         def delete_user():
-            uid = id_var.get()
+            uid = id_var
             self.users = [u for u in self.users if u["id"] != uid]
             save_users(self.users)
             messagebox.showinfo("Deleted", f"User {uid} removed.")
@@ -2024,6 +2031,7 @@ class AdminApp(tk.Tk):
                 return
             # append new task object
             self.task_config[loc][comp].append({
+                "id": str(uuid.uuid4()),
                 "name":      new,
                 "completed": False
             })
@@ -2075,6 +2083,7 @@ class AdminApp(tk.Tk):
                 return
             # update
             lst[idx] = {
+                "id": orig["id"],
                 "name":      new_name,
                 "completed": completed_var.get()
             }
@@ -2126,7 +2135,7 @@ class AdminApp(tk.Tk):
         self.user_lb.delete(0, "end")
         for u in self.users:
             if u["company"] == comp:
-                self.user_lb.insert("end", f"{u['id']}: {u['name']}")
+                self.user_lb.insert("end", f"{u['name']}")
         # clear any selected user so edit/delete won't be stale
         self.current_user = None
 
@@ -2140,9 +2149,7 @@ class AdminApp(tk.Tk):
         dlg = tk.Toplevel(self)
         dlg.title(f"Add user to {comp}")
 
-        tk.Label(dlg, text="ID:").grid(row=0, column=0)
-        id_var = tk.StringVar()
-        tk.Entry(dlg, textvariable=id_var).grid(row=0, column=1)
+        id_var = str(uuid.uuid4())
 
         tk.Label(dlg, text="Name:").grid(row=1, column=0)
         name_var = tk.StringVar()
@@ -2163,13 +2170,13 @@ class AdminApp(tk.Tk):
         tk.Entry(dlg, textvariable=lunch_var).grid(row=4, column=1)
 
         def on_ok():
-            uid     = id_var.get().strip()
+            uid     = id_var
             name    = name_var.get().strip()
             pin     = pin_var.get().strip()
             commute = commute_var.get().strip()
 
             # basic presence check
-            if not (uid and name and pin and commute):
+            if not (name and pin and commute):
                 return messagebox.showerror("Error", "All fields required.")
 
             # numeric check
@@ -2210,11 +2217,11 @@ class AdminApp(tk.Tk):
         if not sel:
             return messagebox.showerror("Error", "Select a user first.")
         text = self.user_lb.get(sel)
-        uid  = text.split(":", 1)[0]
-        user = next(u for u in self.users if u["id"] == uid)
+        name  = text
+        user = next(u for u in self.users if u["name"] == name)
 
         dlg = tk.Toplevel(self)
-        dlg.title(f"Edit user {uid}")
+        dlg.title(f"Edit user {name}")
 
         # — Name —
         tk.Label(dlg, text="Name:").grid(row=0, column=0, sticky="w", padx=5, pady=5)

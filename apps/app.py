@@ -1,4 +1,5 @@
 import tkinter as tk
+import uuid
 from lib.dateandtime import DateAndTime
 from tktimepicker import SpinTimePickerOld, constants
 import os
@@ -348,6 +349,7 @@ class RequestFormFrame(tk.Frame):
             return
 
         data = {
+            "id": str(uuid.uuid4()),
             "task": self.task_var.get(),
             "location": LOCATION,
             "company": user["company"],
