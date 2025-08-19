@@ -24,7 +24,7 @@ from lib.utils import (
 )
 
 COMPANY_FOLDER = resource_path("Database/Fyrirtaeki")
-REQUESTS_FOLDER = resource_path("Database/requests")
+REQUESTS_FOLDER = resource_path("Database/Requests")
 APP_BG = "#f4f4f4"
 
 def _parse_iso(s: str):
