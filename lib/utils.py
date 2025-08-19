@@ -1,3 +1,4 @@
+import uuid
 import json
 import os
 import sys
@@ -49,6 +50,14 @@ def get_user_by_pin(pin, users=None):
         users = load_users()
     for user in users:
         if str(user.get("pin")) == str(pin):
+            return user
+    return None
+
+def get_user_by_id(id, users=None):
+    if users is None:
+        users = load_users()
+    for user in users:
+        if user.get("id") == id:
             return user
     return None
 
@@ -132,6 +141,7 @@ def create_shift_entry(user, task, location):
     now = datetime.now().replace(second=0, microsecond=0)
     commute = int(user.get("commute_minutes", 0))
     return {
+        "id": str(uuid.uuid4()),
         "task":       task,
         "location":   location,
         "clock_in":   now.isoformat(),

@@ -1,4 +1,5 @@
 import tkinter as tk
+import uuid
 from lib.dateandtime import DateAndTime
 from tktimepicker import SpinTimePickerOld, constants
 import os
@@ -32,6 +33,9 @@ def get_incomplete_tasks(task_config, company, location):
     Return a list of task‐names for this company+location
     whose 'completed' flag is False.
     """
+    print(task_config)
+    print(location)
+    print(company)
     all_tasks = task_config.get(location, {}).get(company, [])
     return [t["name"] for t in all_tasks if not t.get("completed", False)]
 
@@ -348,6 +352,7 @@ class RequestFormFrame(tk.Frame):
             return
 
         data = {
+            "id": str(uuid.uuid4()),
             "task": self.task_var.get(),
             "location": LOCATION,
             "company": user["company"],
