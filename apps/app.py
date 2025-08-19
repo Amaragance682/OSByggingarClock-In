@@ -33,9 +33,6 @@ def get_incomplete_tasks(task_config, company, location):
     Return a list of task‐names for this company+location
     whose 'completed' flag is False.
     """
-    print(task_config)
-    print(location)
-    print(company)
     all_tasks = task_config.get(location, {}).get(company, [])
     return [t["name"] for t in all_tasks if not t.get("completed", False)]
 
