@@ -17,12 +17,13 @@ def with_db(func):
         conn = pool.getconn()
         try:
             with conn.cursor() as cur:
-                result = func(cur, *args, **kwargs)
+                func(cur, *args, **kwargs)
                 conn.commit()
-                return result
+                return True
         except Exception as e:
             conn.rollback()
             print(f"DB error: {e}")
+            return False
         finally:
             pool.putconn(conn)
     return wrapper
@@ -40,20 +41,55 @@ def users_callback(cur, changes):
         operation = change["type"]
         value = change["value"]
         if operation == "added":
+            cur.execute("INSERT INTO users (id, name, pin) VALUES(%s, %s, %s)", 
+                        [value["id"], value["name"], value["pin"]])
+
+            cur.execute("SELECT id FROM companies WHERE name = %s", [value["company"]])
+            company_id = cur.fetchone()
+            if not company_id:
+                raise ValueError(f"Company '{value['company']}' does not exist")
+            company_id = company_id[0]
+            settings = {k: value[k] for k in ("commute_minutes", "lunch_minutes") if k in value}
+
+            cur.execute("INSERT INTO company_user_relation (company_id, user_id, role, custom_settings) VALUES(%s, %s, %s, %s)", 
+                                [company_id, value["id"], "employee", settings])
+        if operation == "removed":
+            cur.execute("DELETE FROM users WHERE id = %s", [value["id"]])
+        if operation == "changed":
+            print(value)
+@with_db
+def tasks_callback(cur, changes):
+    for change in changes:
+        operation = change["type"]
+        value = change["value"]
+        if operation == "added":
             print(value)
         if operation == "removed":
             print(value)
         if operation == "changed":
             print(value)
 @with_db
-def tasks_callback(cur, changes):
-    print(changes)
-@with_db
 def shifts_callback(cur, changes):
-    print(changes)
+    for change in changes:
+        operation = change["type"]
+        value = change["value"]
+        if operation == "added":
+            print(value)
+        if operation == "removed":
+            print(value)
+        if operation == "changed":
+            print(value)
 @with_db
 def requests_callback(cur, changes):
-    print(changes)
+    for change in changes:
+        operation = change["type"]
+        value = change["value"]
+        if operation == "added":
+            print(value)
+        if operation == "removed":
+            print(value)
+        if operation == "changed":
+            print(value)
 
 observers = []
 

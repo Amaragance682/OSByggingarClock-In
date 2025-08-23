@@ -50,9 +50,9 @@ class JSONChangeHandler(FileSystemEventHandler):
         if new_data is not None:
             common = {k: self.previous_data[k] for k in new_data.keys() if k in self.previous_data}
             changes = self.detect_changes(common, new_data)
-            self.callback(changes)
-            #self.detect_changes(self.previous_data, new_data)
-            self.previous_data = new_data
+            success = self.callback(changes)
+            if success:
+                self.previous_data = new_data
 
     def detect_changes(self, old, new, path=""):
         if old == new:
@@ -60,7 +60,6 @@ class JSONChangeHandler(FileSystemEventHandler):
 
         changes = []
 
-        # Handle dicts
         if isinstance(old, dict) and isinstance(new, dict):
             old_keys = set(old.keys())
             new_keys = set(new.keys())
@@ -80,7 +79,6 @@ class JSONChangeHandler(FileSystemEventHandler):
             for k in old_keys & new_keys:
                 changes.extend(self.detect_changes(old[k], new[k], path + "." + k if path else k))
 
-            # Handle lists
         elif isinstance(old, list) and isinstance(new, list):
             min_len = min(len(old), len(new))
             for i in range(min_len):
@@ -100,7 +98,6 @@ class JSONChangeHandler(FileSystemEventHandler):
                         "value": old[i]
                     })
 
-            # Fallback for direct value change
         else:
             changes.append({
                 "type": "changed",
