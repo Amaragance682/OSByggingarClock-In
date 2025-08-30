@@ -206,7 +206,7 @@ class Outgoing():
 
                     columns = ["id", "company_user_relation_id", "location_id", "task_id", "clock_in"]
                     placeholders = ["%s", "%s", "%s", "%s", "%s"]
-                    values = [
+                    new_entry = [
                         value["id"],
                         company_user_relation_id,
                         location_id,
@@ -217,18 +217,18 @@ class Outgoing():
                     if "clock_out" in value:
                         columns.append("clock_out")
                         placeholders.append("%s")
-                        values.append(value["clock_out"])
+                        new_entry.append(value["clock_out"])
 
                     columns.append("extra")
                     placeholders.append("%s")
-                    values.append(psycopg2.extras.Json(extra))
+                    new_entry.append(psycopg2.extras.Json(extra))
 
                     sql = f"""
                         INSERT INTO time_entries ({", ".join(columns)})
                         VALUES ({", ".join(placeholders)})
                     """
 
-                    cur.execute(sql, values)
+                    cur.execute(sql, new_entry)
                 else:
                     if field in ("id", "task", "location", "clock_in", "clock_out"):
                         cur.execute(f"UPDATE time_entries SET {field}=%s WHERE id=%s", [value, shift_id])

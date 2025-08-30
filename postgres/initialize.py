@@ -7,7 +7,7 @@ load_dotenv()
 conn = psycopg2.connect(os.getenv("DATABASE_URL"), sslmode='require')
 cur = conn.cursor()
 
-cur.execute("""
+cur.execute(f"""
 CREATE TABLE IF NOT EXISTS companies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
@@ -79,9 +79,12 @@ CREATE TABLE IF NOT EXISTS requests (
 
 CREATE OR REPLACE FUNCTION notify_request_change()
 RETURNS trigger AS $$
+DECLARE
+  v_source text;
 BEGIN
-  IF current_setting('app.source', true) = 'file_sync' THEN
-    RETURN NEW;
+  v_source := current_setting('app.source', true);
+  IF v_source IS NULL THEN
+    v_source := 'unknown';
   END IF;
 
   IF TG_OP = 'INSERT' THEN
@@ -91,7 +94,8 @@ BEGIN
         'action', TG_OP,
         'table', TG_TABLE_NAME,
         'id', NEW.id,
-        'new', row_to_json(NEW)
+        'new', row_to_json(NEW),
+        'source', v_source
       )::text
     );
     RETURN NEW;
@@ -104,7 +108,8 @@ BEGIN
         'table', TG_TABLE_NAME,
         'id', NEW.id,
         'old', row_to_json(OLD),
-        'new', row_to_json(NEW)
+        'new', row_to_json(NEW),
+        'source', v_source
       )::text
     );
     RETURN NEW;
@@ -116,7 +121,8 @@ BEGIN
         'action', TG_OP,
         'table', TG_TABLE_NAME,
         'id', OLD.id,
-        'old', row_to_json(OLD)
+        'old', row_to_json(OLD),
+        'source', v_source
       )::text
     );
     RETURN OLD;

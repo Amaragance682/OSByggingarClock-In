@@ -5,6 +5,7 @@ import os
 import psycopg2
 import select
 from dotenv import load_dotenv
+from apps.app import LOCATION
 
 class Incoming():
     def __init__(self, outgoing):
@@ -32,6 +33,9 @@ class Incoming():
                 notify = self.conn.notifies.pop(0)
                 print("Got NOTIFY:", notify.payload)
                 payload = json.loads(notify.payload)
+                if payload["source"] == LOCATION:
+                    print("was from me...")
+                    continue
                 if payload["table"] == "users":
                     self.handle_users(payload)
                 if payload["table"] == "companies":
