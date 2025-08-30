@@ -176,7 +176,7 @@ class Incoming():
             new = payload["new"]
             company_id = new["company_id"]
             task_id = new["task_id"]
-            location_id = new["task_id"]
+            location_id = new["location_id"]
             self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
             company = self.cur.fetchone()[0]
             self.cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
@@ -213,7 +213,7 @@ class Incoming():
             new = payload["new"]
             company_id = new["company_id"]
             task_id = new["task_id"]
-            location_id = new["task_id"]
+            location_id = new["location_id"]
             self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
             company = self.cur.fetchone()[0]
             self.cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
@@ -309,7 +309,7 @@ class Incoming():
             company_id, user_id = self.cur.fetchone()
 
             task_id = new["task_id"]
-            location_id = new["task_id"]
+            location_id = new["location_id"]
 
             self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
             company = self.cur.fetchone()[0]
@@ -353,7 +353,7 @@ class Incoming():
             company_id, user_id = self.cur.fetchone()
 
             task_id = new["task_id"]
-            location_id = new["task_id"]
+            location_id = new["location_id"]
 
             self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
             company = self.cur.fetchone()[0]

@@ -174,10 +174,5 @@
         "pin": "4364",
         "commute_minutes": 25,
         "lunch_minutes": 0
-    },
-    {
-        "id": "057f298f-5e17-4687-8f7f-d9087ace522f",
-        "name": "synctesting",
-        "pin": "35643"
     }
 ]

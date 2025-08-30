@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from watchdog.observers import Observer
 from psycopg2.pool import SimpleConnectionPool
 from lib.watcher import JSONChangeHandler
+from apps.app import LOCATION
 
 class Outgoing():
     def __init__(self):
@@ -52,7 +53,7 @@ class Outgoing():
             conn = self.pool.getconn()
             try:
                 with conn.cursor() as cur:
-                    cur.execute("SET app.source = 'file_sync'")
+                    cur.execute(f"SET app.source = '{LOCATION}'")
                     func(cur, *args, **kwargs)
                     conn.commit()
                     return True
