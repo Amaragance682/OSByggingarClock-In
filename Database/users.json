@@ -1,37 +1,5 @@
 [
   {
-    "id": "olafur",
-    "name": "Ólafur Sær",
-    "company": "OS Byggingar",
-    "pin": "0001",
-    "commute_minutes": 100,
-    "lunch_minutes": 30
-  },
-  {
-    "id": "jonni",
-    "name": "johann",
-    "company": "OS Byggingar",
-    "pin": "0003",
-    "commute_minutes": 100,
-    "lunch_minutes": 0
-  },
-  {
-    "id": "fannar",
-    "name": "Fannar Freyr",
-    "company": "A1 málun",
-    "pin": "0101",
-    "commute_minutes": 50,
-    "lunch_minutes": 0
-  },
-  {
-    "id": "joe",
-    "name": "joeinn",
-    "company": "OS Byggingar",
-    "pin": "0002",
-    "commute_minutes": 25,
-    "lunch_minutes": 0
-  },
-  {
     "id": "b3365185-de58-4c9c-8fe1-005d501ec0d8",
     "name": "ragnar",
     "company": "A1 málun",
@@ -43,7 +11,7 @@
     "id": "f0cde359-5546-4566-ae26-ee6eb3f57470",
     "name": "test",
     "company": "A1 málun",
-    "pin": "6982",
+    "pin": "698",
     "commute_minutes": 250,
     "lunch_minutes": 10
   },
@@ -52,14 +20,6 @@
     "name": "ragna4",
     "company": "A1 málun",
     "pin": "0203",
-    "commute_minutes": 25,
-    "lunch_minutes": 0
-  },
-  {
-    "id": "f0d4a936-031d-497a-9d30-9bda1bb96c8b",
-    "name": "olisigma",
-    "company": "A1 málun",
-    "pin": "1337",
     "commute_minutes": 25,
     "lunch_minutes": 0
   },
@@ -84,6 +44,134 @@
     "name": "testAdded",
     "company": "A1 málun",
     "pin": "0015",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "5723cf1d-9108-4543-85b7-1d90af76f79c",
+    "name": "gamer",
+    "company": "A1 málun",
+    "pin": "323",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "67c9294e-55dd-4697-869d-8d65d756b073",
+    "name": "gamerepic",
+    "company": "A1 málun",
+    "pin": "325",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "3b49ed6a-73c6-453a-9dfe-6ab3a33021a3",
+    "name": "gamerepic",
+    "company": "A1 málun",
+    "pin": "9999",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "9c850aeb-475f-49e8-9fdc-83ba1b6ed01b",
+    "name": "test",
+    "company": "A1 málun",
+    "pin": "12345",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "883a0afa-2270-4c15-a29c-76287a82cc9b",
+    "name": "gameringepic",
+    "company": "A1 málun",
+    "pin": "3434",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "86f93ffa-8fde-4201-b38e-72d8062d736f",
+    "name": "JDJDJDKJD",
+    "company": "A1 málun",
+    "pin": "3928392",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "dc4613f3-4c4e-4906-a0d9-b96202b19c38",
+    "name": "this is a test",
+    "company": "A1 málun",
+    "pin": "123457",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "2f8605e7-4c89-448e-872f-8b3a082a7664",
+    "name": "agaim",
+    "company": "A1 málun",
+    "pin": "3213",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "c2e14291-000b-4207-8f5e-5f16fd7585a5",
+    "name": "WHAHA",
+    "company": "A1 málun",
+    "pin": "321",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "73a4ca87-b638-4e72-979a-5066de7baad9",
+    "name": "FINALLY",
+    "company": "A1 málun",
+    "pin": "644",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "598d1501-f674-4f55-8a4a-42105d2d6acf",
+    "name": "what?",
+    "company": "A1 málun",
+    "pin": "4568",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "8adbba84-e814-463a-8fbf-0e9b8e52bdda",
+    "name": "pleasssse",
+    "company": "A1 málun",
+    "pin": "5435",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "d6a4294d-9391-4c62-884c-9d5e56adce5f",
+    "name": "please no rebound",
+    "company": "A1 málun",
+    "pin": "6789",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "b293d36d-72be-4711-98b4-c955424e5e20",
+    "name": "niiiice?",
+    "company": "A1 málun",
+    "pin": "323214",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "a5bdac4c-f4e9-4f2b-bfd3-0d342d768c74",
+    "name": "PLEASSE",
+    "company": "A1 málun",
+    "pin": "5434",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "c886187b-06f0-4c5d-af55-efd7c1374bc5",
+    "name": "okokkokoherewego",
+    "company": "A1 málun",
+    "pin": "4364",
     "commute_minutes": 25,
     "lunch_minutes": 0
   }

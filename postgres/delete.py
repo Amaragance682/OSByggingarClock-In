@@ -9,7 +9,9 @@ cur = conn.cursor()
 
 cur.execute("""
 DROP TABLE IF EXISTS requests CASCADE;
-DROP TABLE IF EXISTS work_logs CASCADE;
+DROP TABLE IF EXISTS company_user_relation CASCADE;
+DROP TABLE IF EXISTS time_entries CASCADE;
+DROP TABLE IF EXISTS union_contracts CASCADE;
 DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS companies CASCADE;

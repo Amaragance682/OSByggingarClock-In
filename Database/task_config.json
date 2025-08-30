@@ -124,24 +124,17 @@
         "completed": false
       },
       {
-        "name": "Gólfefni",
-        "completed": false
-      }
-    ],
-    "Takgg": [
-      {
-        "name": "Burðavirkni, sökklar og botnplata",
+        "id": "19ffdc7a-0eb6-4e1a-8cbc-687ae271cefc",
+        "name": "test",
         "completed": false
       },
       {
-        "name": "Gluggar og frontar",
-        "completed": false
-      },
-      {
-        "name": "Handrið og flóttastigar",
+        "id": "d0962bdb-f4e9-4557-a693-39b293458669",
+        "name": "gamerepicsuper",
         "completed": false
       }
     ],
+    "Takgg": [],
     "Rafakur": [
       {
         "name": "Raflagnir með tækjum",
@@ -163,6 +156,11 @@
     "A1 málun": [
       {
         "name": "Málning",
+        "completed": false
+      },
+      {
+        "id": "c2d18cec-8440-44dd-b933-95ed614b2e4f",
+        "name": "testTask",
         "completed": false
       }
     ]
@@ -189,6 +187,11 @@
       },
       {
         "name": "Grunnlagnir, gröftur og fyllingar",
+        "completed": false
+      },
+      {
+        "id": "f58987fc-2a66-457f-873c-c907a628e2d7",
+        "name": "test",
         "completed": false
       }
     ],
@@ -254,8 +257,29 @@
       {
         "name": "Málning",
         "completed": false
+      },
+      {
+        "id": "a7d6aed3-8dd0-4535-8ade-3f085e3500e6",
+        "name": "testTask2",
+        "completed": false
       }
     ],
-    "sigma": []
+    "sigma": [],
+    "gamerepic": []
+  },
+  "whatthefuckingshit3": {
+    "gamer": []
+  },
+  "???": {},
+  "plsss": {
+    "WHAAAAAAAAAAT": [],
+    "HELLLLLLLLLLLLO": [],
+    "jdkldsa": [],
+    "ok now you need to work": [],
+    "alalaa": [],
+    "what is happeinig": [],
+    "YES": [],
+    "okguesssnot": [],
+    "nowow?": []
   }
 }

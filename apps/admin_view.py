@@ -24,7 +24,7 @@ from lib.utils import (
 )
 
 COMPANY_FOLDER = resource_path("Database/Fyrirtaeki")
-REQUESTS_FOLDER = resource_path("Database/Requests")
+REQUESTS_FOLDER = resource_path("Database/requests")
 APP_BG = "#f4f4f4"
 
 def _parse_iso(s: str):
@@ -711,7 +711,7 @@ class AdminApp(tk.Tk):
                 if user is None:
                     employee_name = employee_id
                 else:
-                    employee_name = user["name"]
+                    employee_name = (user["name"], user["id"])
                 filepath = os.path.join(company_path, filename)
 
                 try:
@@ -1231,6 +1231,8 @@ class AdminApp(tk.Tk):
         CHIP_BG    = {"pending": "#fde68a", "approved": "#d1fae5", "rejected": "#fee2e2"}
         CHIP_FG    = {"pending": "#92400e", "approved": "#065f46", "rejected": "#991b1b"}
 
+        employee, employee_id = employee
+
         # helpers for file update
         orig_start = req.get("requested_start")
         orig_end   = req.get("requested_end")
@@ -1387,7 +1389,7 @@ class AdminApp(tk.Tk):
         def handle_finalize():
             st = status_var.get().lower()
             if st == "approved":
-                self.finalize_request(req, employee, company, filepath)
+                self.finalize_request(req, employee_id, company, filepath)
             elif st == "rejected":
                 if messagebox.askyesno("Confirm Removal",
                                     f"Are you sure you want to delete the request from {employee}?"):
@@ -1432,7 +1434,9 @@ class AdminApp(tk.Tk):
             "task": req["task"],
             "location": req["location"],
             "clock_in": req["requested_start"],
-            "clock_out": req["requested_end"]
+            "clock_out": req["requested_end"],
+            "lunch_minutes": req["lunch_minutes"],
+            "commute_minutes": req["commute_minutes"]
         }
 
         conflicts = []  # <-- Initialize here
@@ -1477,10 +1481,10 @@ class AdminApp(tk.Tk):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 all_requests = json.load(f)
-            all_requests = [r for r in all_requests if not (
-                r.get("requested_start") == req.get("requested_start") and
-                r.get("requested_end") == req.get("requested_end")
-            )]
+            all_requests = [
+                r for r in all_requests
+                if r.get("requested_start") != req.get("requested_start") or r.get("requested_end") != req.get("requested_end")
+            ]
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(all_requests, f, indent=4, ensure_ascii=False)
         except Exception as e:
