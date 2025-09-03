@@ -25,7 +25,7 @@ from lib.utils import (
 
 # !!!CHANGE THIS TO CURRENT LOCATION OF THE LAPTOP!!!
 # ==================================================#
-LOCATION = "plsss"
+LOCATION = "Eyravegur 28-30, Selfoss"
 # ==================================================#
 
 def get_incomplete_tasks(task_config, company, location):
