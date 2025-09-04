@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from watchdog.observers import Observer
 from psycopg2.pool import SimpleConnectionPool
 from lib.watcher import JSONChangeHandler
+import re
 from apps.app import LOCATION
 
 class Outgoing():
@@ -167,12 +168,13 @@ class Outgoing():
 
     def shifts_callback(self, cur, changes):
         def split_path(path):
+
             if len(path) == 0:
                 company = None
                 user_id = None
             else:
-                company = path[0].split("/")[2]
-                user_id = path[0].split("/")[3].split(".")[0]
+                company = re.split(r"[\\/]", path[0])[2]
+                user_id = re.split(r"[\\/]", path[0])[3].split(".")[0]
             if len(path) == 2:
                 shift_id = path[1]
             else:
@@ -270,8 +272,8 @@ class Outgoing():
                 company = None
                 user_id = None
             else:
-                company = path[0].split("/")[2]
-                user_id = path[0].split("/")[3].split("_")[0]
+                company = re.split(r"[\\/]", path[0])[2]
+                user_id = re.split(r"[\\/]", path[0])[3].split("_")[0]
             if len(path) == 2:
                 request_id = path[1]
             else:
