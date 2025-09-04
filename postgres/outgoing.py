@@ -77,6 +77,41 @@ class Outgoing():
         observer.start()
         return (observer, watcher, path)
 
+    def resolve_human_readable(self, cur, field, value):
+        if not value:
+            return "—"
+
+        try:
+            if field == "user_id":
+                cur.execute("SELECT name FROM users WHERE id=%s", [value])
+                row = cur.fetchone()
+                return row[0] if row else value
+            elif field == "company_id":
+                cur.execute("SELECT name FROM companies WHERE id=%s", [value])
+                row = cur.fetchone()
+                return row[0] if row else value
+            elif field == "location_id":
+                cur.execute("SELECT address FROM locations WHERE id=%s", [value])
+                row = cur.fetchone()
+                return row[0] if row else value
+            elif field == "task_id":
+                cur.execute("SELECT name FROM tasks WHERE id=%s", [value])
+                row = cur.fetchone()
+                return row[0] if row else value
+            elif field == "shift_id":
+                cur.execute("""
+                    SELECT u.name
+                    FROM users u
+                    JOIN company_user_relation cur ON cur.user_id = u.id
+                    JOIN time_entries te ON te.company_user_relation_id = cur.id
+                    WHERE te.id = %s
+                """, [value])
+                row = cur.fetchone()
+                return row[0] if row else value
+        except Exception:
+            pass
+        return value
+
     def users_callback(self, cur, changes):
         def split_path(path):
             if len(path) == 0:
@@ -346,8 +381,7 @@ class Outgoing():
                     table = Table(box=box.ROUNDED)
                     table.add_column("Field", style="cyan")
                     table.add_column("Value", style="magenta")
-                    table.add_row("Shift ID", value["id"])
-                    table.add_row("User ID", user_id)
+                    table.add_row("Shift owner", self.resolve_human_readable(cur, "user_id", user_id))
                     table.add_row("Company", company)
                     table.add_row("Location", value["location"])
                     table.add_row("Task", value["task"])
@@ -370,7 +404,7 @@ class Outgoing():
                     table = Table(box=box.ROUNDED)
                     table.add_column("Field", style="cyan")
                     table.add_column("Value", style="magenta")
-                    table.add_row("Shift ID", shift_id)
+                    table.add_row("Shift owner", self.resolve_human_readable(cur, "shift_id", shift_id))
                     table.add_row(field, str(value))
                     self.console.print("[bold green]✅ Shift changed![/bold green]")
                     self.console.print(table)
@@ -380,8 +414,7 @@ class Outgoing():
                 table = Table(box=box.ROUNDED)
                 table.add_column("Field", style="cyan")
                 table.add_column("Value", style="magenta")
-                table.add_row("Shift ID", value["id"])
-                table.add_row("User ID", user_id)
+                table.add_row("Shift owner", self.resolve_human_readable(cur, "user_id", user_id))
                 table.add_row("Company", company)
                 table.add_row("Task", value.get("task", "—"))
                 self.console.print("[bold red]🗑️ Shift removed:[/bold red]")
@@ -413,6 +446,7 @@ class Outgoing():
                 table = Table(box=box.ROUNDED)
                 table.add_column("Field", style="cyan")
                 table.add_column("New Value", style="magenta")
+                table.add_row("Shift owner", self.resolve_human_readable(cur, "shift_id", shift_id))
                 table.add_row(field, str(value))
                 self.console.print("[bold yellow]✏️ Shift updated:[/bold yellow]")
                 self.console.print(table)
@@ -462,8 +496,8 @@ class Outgoing():
                 table = Table(box=box.ROUNDED)
                 table.add_column("Field", style="cyan")
                 table.add_column("Value", style="magenta")
-                table.add_row("Request ID", value["id"])
-                table.add_row("User ID", user_id)
+                table.add_row("Request", self.resolve_human_readable(cur, "request_id", value["id"]))
+                table.add_row("User", self.resolve_human_readable(cur, "user_id", user_id))
                 table.add_row("Company", value["company"])
                 table.add_row("Location", value["location"])
                 table.add_row("Task", value["task"])
@@ -481,8 +515,8 @@ class Outgoing():
                 table = Table(box=box.ROUNDED)
                 table.add_column("Field", style="cyan")
                 table.add_column("Value", style="magenta")
-                table.add_row("Request ID", value["id"])
-                table.add_row("User ID", user_id)
+                table.add_row("Request", self.resolve_human_readable(cur, "request_id", value["id"]))
+                table.add_row("User", self.resolve_human_readable(cur, "user_id", user_id))
                 table.add_row("Company", company)
                 table.add_row("Task", value.get("task", "—"))
                 self.console.print("[bold red]🗑️ Request removed:[/bold red]")
