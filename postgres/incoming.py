@@ -52,8 +52,11 @@ class Incoming():
                     self.handle_shifts(payload)
 
     def write_to_file(self, procedure, path):
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = []
 
         procedure(data)
 
