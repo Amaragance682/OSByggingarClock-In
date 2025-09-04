@@ -109,7 +109,7 @@ class Incoming():
                 for i, d in enumerate(data):
                     if d["id"] == new["user_id"]:
                         data[i]["company"] = company
-                        for i2, d2 in new["custom_settings"]:
+                        for i2, d2 in new["custom_settings"].items():
                             data[i][i2] = d2
 
         elif action == "DELETE":
@@ -122,7 +122,7 @@ class Incoming():
             def procedure(data):
                 for i, d in enumerate(data):
                     if d["id"] == new["user_id"]:
-                        for i2, d2 in new["custom_settings"]:
+                        for i2, d2 in new["custom_settings"].items():
                             data[i][i2] = d2
 
         self.write_to_file(procedure, "Database/users.json")
@@ -132,21 +132,21 @@ class Incoming():
         if action == "INSERT":
             new = payload["new"]
             def procedure(data):
-                for _, loc in data:
+                for _, loc in data.items():
                     if new["name"] not in loc:
                         loc[new["name"]] = []
 
         elif action == "DELETE":
             old = payload["old"]
             def procedure(data):
-                for _, loc in data:
+                for _, loc in data.items():
                     del loc[old["name"]]
         else:
             old = payload["old"]
             new = payload["new"]
 
             def procedure(data):
-                for _, loc in data:
+                for _, loc in data.items():
                     if old["name"] in loc:
                         loc[new["name"]] = loc.pop(old["name"])
 
@@ -169,7 +169,7 @@ class Incoming():
             new = payload["new"]
 
             def procedure(data):
-                if old["name"] in data:
+                if old["address"] in data:
                     data[new["address"]] = data.pop(old["address"])
 
         self.write_to_file(procedure, "Database/task_config.json")
@@ -241,7 +241,7 @@ class Incoming():
             def procedure(data):
                 for d in data:
                     if d["id"] == new["id"]:
-                        d = new_request
+                        d.update(new_request)
 
         self.write_to_file(procedure, f"Database/requests/{company}/{user_id}_requests.json")
 
@@ -381,6 +381,6 @@ class Incoming():
             def procedure(data):
                 for d in data:
                     if d["id"] == new["id"]:
-                        d = new_shift
+                        d.update(new_shift)
 
         self.write_to_file(procedure, f"Database/Fyrirtaeki/{company}/{user_id}.json")
