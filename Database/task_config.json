@@ -1,20 +1,31 @@
 {
-    "Eyravegur 28-30, Selfoss": {
-        "A1 málun": [
-            {
-                "id": "b702a7d4-0006-4e8c-8870-03c16c99c3b9",
-                "name": "test",
-                "completed": false
-            }
-        ]
-    },
-    "whatthefuckingshit3": {
-        "gamer": [
-            {
-                "id": "984536b4-38d0-4926-ba02-b323c5f657e2",
-                "name": "gamer",
-                "completed": false
-            }
-        ]
-    }
+  "Eyravegur 28-30, Selfoss": {
+    "A1 málun": [
+      {
+        "id": "b702a7d4-0006-4e8c-8870-03c16c99c3b9",
+        "name": "test",
+        "completed": false
+      }
+    ]
+  },
+  "whatthefuckingshit3": {
+    "gamer": [
+      {
+        "id": "984536b4-38d0-4926-ba02-b323c5f657e2",
+        "name": "gamer2",
+        "completed": false
+      },
+      {
+        "id": "d68bb185-77c5-43cb-b606-46ad75f1cef0",
+        "name": "newtask",
+        "completed": false
+      },
+      {
+        "id": "88e4c9a0-1a37-4cec-bbd8-5d635c0d9897",
+        "name": "Fix windows",
+        "completed": false
+      }
+    ]
+  },
+  "newloc": {}
 }

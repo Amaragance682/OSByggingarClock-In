@@ -1,42 +1,122 @@
 [
-    {
-        "id": "b3365185-de58-4c9c-8fe1-005d501ec0d8",
-        "name": "ragnar",
-        "company": "A1 málun",
-        "pin": "5559",
-        "commute_minutes": 25,
-        "lunch_minutes": 0
-    },
-    {
-        "id": "f0cde359-5546-4566-ae26-ee6eb3f57470",
-        "name": "test",
-        "company": "A1 málun",
-        "pin": "698",
-        "commute_minutes": 250,
-        "lunch_minutes": 10
-    },
-    {
-        "id": "79b52830-a087-4afb-a873-19dc1f02aaf1",
-        "name": "ragna4",
-        "company": "A1 málun",
-        "pin": "0203",
-        "commute_minutes": 25,
-        "lunch_minutes": 0
-    },
-    {
-        "id": "2cca9b20-090d-4bd5-936a-c858be0e5bb8",
-        "name": "ragnar2",
-        "pin": "3344",
-        "company": "A1 málun",
-        "lunch_minutes": 0,
-        "commute_minutes": 25
-    },
-    {
-        "id": "d305dd88-6658-4ead-b584-89436980acf7",
-        "name": "mycompanyuser",
-        "pin": "2243",
-        "company": "gamer",
-        "lunch_minutes": 0,
-        "commute_minutes": 25
-    }
+  {
+    "id": "b3365185-de58-4c9c-8fe1-005d501ec0d8",
+    "name": "ragnar",
+    "company": "A1 málun",
+    "pin": "5559",
+    "commute_minutes": 20,
+    "lunch_minutes": 15
+  },
+  {
+    "id": "f0cde359-5546-4566-ae26-ee6eb3f57470",
+    "name": "test",
+    "company": "A1 málun",
+    "pin": "698",
+    "commute_minutes": 15,
+    "lunch_minutes": 20
+  },
+  {
+    "id": "79b52830-a087-4afb-a873-19dc1f02aaf1",
+    "name": "ragna4",
+    "company": "A1 málun",
+    "pin": "0203",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "2cca9b20-090d-4bd5-936a-c858be0e5bb8",
+    "name": "ragnar2",
+    "pin": "3344",
+    "company": "A1 málun",
+    "lunch_minutes": 0,
+    "commute_minutes": 25
+  },
+  {
+    "id": "d305dd88-6658-4ead-b584-89436980acf7",
+    "name": "mycompanyuser",
+    "pin": "2243",
+    "company": "gamer",
+    "lunch_minutes": 0,
+    "commute_minutes": 25
+  },
+  {
+    "id": "ea86d978-6ab3-40a5-8a00-ff645cd37ce5",
+    "name": "Test",
+    "company": "gamer",
+    "pin": "123456",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "8e2e21e7-8466-4e10-a7a6-c5e14c169a9c",
+    "name": "new test",
+    "company": "gamer",
+    "pin": "41321",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "66d856a6-47da-4985-ab90-0e1bec564541",
+    "name": "sigma",
+    "company": "gamer",
+    "pin": "32151",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "8321b428-2b1e-48bf-b9d0-31e35e4eeab1",
+    "name": "newtest3",
+    "company": "gamer",
+    "pin": "5343",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "4d723ff1-7282-41ce-b143-1ac508fb59d5",
+    "name": "gamer",
+    "company": "gamer",
+    "pin": "32151",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "ebec2d27-9c2e-4779-9f4d-aa94ecf6a58a",
+    "name": "sigma gamer2",
+    "company": "gamer",
+    "pin": "436245",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "b4d68e8b-93eb-40da-a086-ea1712b3b8b6",
+    "name": "new user 2",
+    "company": "gamer",
+    "pin": "542543",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "b005934f-65f8-40ae-bdf0-4b6ecf5e74a4",
+    "name": "ga",
+    "company": "gamer",
+    "pin": "44215",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "f9fd863e-66e0-4e3e-abc7-a66b8d546355",
+    "name": "Ragnar",
+    "company": "gamer",
+    "pin": "4321321",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "5b6e3310-72c8-4946-a4ea-e12f7fdff55b",
+    "name": "thisuer",
+    "company": "A1 málun",
+    "pin": "3535",
+    "commute_minutes": 12,
+    "lunch_minutes": 14
+  }
 ]
