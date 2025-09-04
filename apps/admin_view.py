@@ -206,7 +206,7 @@ class AdminApp(tk.Tk):
             textvariable=self.location_var, state="readonly",
             width=18, style="Filter.TCombobox"
         )
-        self.location_dropdown.bind("<<ComboboxSelected>>", self.on_loc_selected)
+        self.location_dropdown.bind("<<ComboboxSelected>>", self.on_filter_loc_selected)
 
         # Company
         self.company_dropdown = self._chip_combobox(
@@ -214,7 +214,7 @@ class AdminApp(tk.Tk):
             textvariable=self.company_var, state="readonly",
             width=18, style="Filter.TCombobox"
         )
-        self.company_dropdown.bind("<<ComboboxSelected>>", self.on_comp_selected)
+        self.company_dropdown.bind("<<ComboboxSelected>>", self.on_filter_comp_selected)
 
         # User
         self.user_dropdown = self._chip_combobox(
@@ -428,19 +428,31 @@ class AdminApp(tk.Tk):
         self.breadcrumb_var.set(f"{self.current_loc or '—'}  ▸  {comp}")
 
     def on_comp_selected(self, evt=None):
-        sel = self.comp_lb.curselection()
-        self.current_comp = self.comp_lb.get(sel) if sel else None
+        lb = evt.widget if evt else getattr(self, "comp_lb", None)
+        if not lb or not lb.winfo_exists():
+            return
+        try:
+            sel = lb.curselection()
+            self.current_comp = lb.get(sel) if sel else None
+        except tk.TclError:
+            return
         self.refresh_tasks()
-
-        # Breadcrumb
         self.breadcrumb_var.set(f"{getattr(self, 'current_loc', None) or '—'}  ▸  {self.current_comp or '—'}")
+
 
 
     def get_company_names(self):
         return [name for name in os.listdir(COMPANY_FOLDER)
                 if os.path.isdir(os.path.join(COMPANY_FOLDER, name))]
 
+    def on_filter_loc_selected(self, _evt=None):
+        self.refresh_shifts()
+
+    def on_filter_comp_selected(self, _evt=None):
+        self.refresh_shifts()
+
     def refresh_shifts(self, event=None):
+        
         # 1) clear existing cards
         for w in self.shift_frame.winfo_children():
             w.destroy()
@@ -1711,11 +1723,6 @@ class AdminApp(tk.Tk):
         right.pack(side="right")
         return left, right
 
-    def on_loc_selected(self, evt):
-        sel = self.loc_lb.get(self.loc_lb.curselection())
-        # populate companies for that loc…
-        # clear tasks panel
-
     def on_user_company_selected(self, event=None):
         """When the user picks a company, reload the user listbox."""
         comp = self.user_company_var.get()
@@ -1886,15 +1893,6 @@ class AdminApp(tk.Tk):
         save_task_config(self.task_config)
         self.refresh_locations()
 
-    def on_loc_selected(self, evt=None):
-        sel = self.loc_lb.curselection()
-        if not sel:
-            self.current_loc = None
-        else:
-            self.current_loc = self.loc_lb.get(sel)
-        # repopulate companies
-        self.refresh_companies()
-
     # ────────────────────────────────────────────────────────────────────
     # Company‐level CRUD (must come after the location methods)
     # ────────────────────────────────────────────────────────────────────
@@ -1986,16 +1984,6 @@ class AdminApp(tk.Tk):
         self.task_config[loc].pop(comp, None)
         save_task_config(self.task_config)
         self.refresh_companies()
-
-    def on_comp_selected(self, evt=None):
-        sel = self.comp_lb.curselection()
-        if not sel:
-            self.current_comp = None
-        else:
-            self.current_comp = self.comp_lb.get(sel)
-        # now we know both loc & comp
-        # and we can refresh tasks without touching the loc Listbox again
-        self.refresh_tasks()
 
     # ────────────────────────────────────────────────────────────────────
     # Task‐level CRUD (replace your existing methods with these)

@@ -4,6 +4,7 @@ import json
 import os
 import psycopg2
 import select
+import time
 from dotenv import load_dotenv
 from apps.app import LOCATION
 
@@ -383,3 +384,76 @@ class Incoming():
                         d.update(new_shift)
 
         self.write_to_file(procedure, f"Database/Fyrirtaeki/{company}/{user_id}.json")
+
+class ListenerThread:
+    def __init__(self, dsn, channels, on_notify):
+        self.dsn = dsn                 # e.g. "dbname=... user=... password=... host=... port=..."
+        self.channels = list(channels) # ["shift_updates", ...]
+        self.on_notify = on_notify     # callback(payload, channel)
+        self._running = True
+        self.conn = None
+        self.cur = None
+
+    def stop(self):
+        self._running = False
+        try:
+            if self.conn:
+                self.conn.close()
+        except Exception:
+            pass
+
+    def _connect(self):
+        # per-thread connection, autocommit, keepalives
+        self.conn = psycopg2.connect(
+            self.dsn,
+            keepalives=1,
+            keepalives_idle=30,      # seconds
+            keepalives_interval=10,  # seconds
+            keepalives_count=3
+        )
+        self.conn.set_session(autocommit=True)
+        self.cur = self.conn.cursor()
+        for ch in self.channels:
+            self.cur.execute(f'LISTEN "{ch}";')
+
+    def _loop_once(self, timeout=30.0):
+        # Wait for socket readability or timeout, then poll
+        fileno = self.conn.fileno()
+        # On Windows, select() works with sockets; psycopg2 uses sockets internally
+        r, _, _ = select.select([fileno], [], [], timeout)
+        if r:
+            self.conn.poll()
+            while self.conn.notifies:
+                note = self.conn.notifies.pop(0)
+                # note.payload, note.channel
+                try:
+                    self.on_notify(note.payload, note.channel)
+                except Exception as e:
+                    # don’t crash the thread on bad callback
+                    print(f"[notify-error] {e}")
+
+    def _run(self):
+        backoff = 1.0
+        while self._running:
+            try:
+                if not self.conn:
+                    self._connect()
+                    backoff = 1.0  # reset backoff on successful connect
+                self._loop_once(timeout=30.0)
+            except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+                print(f"[db] connection lost: {e}")
+                try:
+                    if self.conn:
+                        self.conn.close()
+                except Exception:
+                    pass
+                self.conn = None
+                self.cur = None
+                time.sleep(backoff)
+                backoff = min(backoff * 2.0, 30.0)  # capped exponential backoff
+            except Exception as e:
+                # Non-DB exceptions shouldn't permanently kill the loop
+                print(f"[listener] unexpected error: {e}")
+                time.sleep(1.0)
+
+    # spawn with threading.Thread(target=listener._run, daemon=True).start()

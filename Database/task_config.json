@@ -27,5 +27,13 @@
       }
     ]
   },
-  "newloc": {}
+  "newloc": {
+    "skibidi": [
+      {
+        "id": "16237fc9-2e64-4a0d-8cd3-6f309c36fae1",
+        "name": "mogus",
+        "completed": false
+      }
+    ]
+  }
 }
