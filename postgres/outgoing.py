@@ -81,7 +81,7 @@ class Outgoing():
                 return path[1], path[2]
 
         for change in changes:
-            print(change)
+
             operation = change["type"]
             value = change["value"]
             if operation == "added":
@@ -126,7 +126,6 @@ class Outgoing():
             return location, company, task_id, field
 
         for change in changes:
-            print(change)
             operation = change["type"]
             value = change["value"]
             path = change["path"]
@@ -187,7 +186,7 @@ class Outgoing():
             return company, user_id, shift_id, field
 
         for change in changes:
-            print(change)
+
             operation = change["type"]
             value = change["value"]
             path = change["path"]
@@ -287,7 +286,7 @@ class Outgoing():
 
         for change in changes:
             operation = change["type"]
-            print(change)
+
             value = change["value"]
             path = change["path"]
             company, user_id, request_id, field = split_path(path)

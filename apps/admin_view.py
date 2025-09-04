@@ -1071,7 +1071,7 @@ class AdminApp(tk.Tk):
 
         win = tk.Toplevel(self)
         win.title("Edit Finished Shift")
-        win.geometry("360x380")
+        win.geometry("360x420")
 
         # ─ Location
         tk.Label(win, text="Location").pack(pady=(6,0))
@@ -1166,7 +1166,7 @@ class AdminApp(tk.Tk):
             self.refresh_shifts()
 
 
-        tk.Button(win, text="Save", width=12, height=2, command=save_changes).pack(pady=12)
+        tk.Button(win, text="Save", width=12, height=2, bg="#b7f7b0", activebackground="#a3e6a1", command=save_changes).pack(pady=12)
 
 
 

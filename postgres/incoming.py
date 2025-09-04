@@ -31,11 +31,10 @@ class Incoming():
             self.conn.poll()
             while self.conn.notifies:
                 notify = self.conn.notifies.pop(0)
-                print("Got NOTIFY:", notify.payload)
                 payload = json.loads(notify.payload)
                 if payload["source"] == LOCATION:
-                    print("was from me...")
                     continue
+                print("Got NOTIFY:", notify.payload)
                 if payload["table"] == "users":
                     self.handle_users(payload)
                 if payload["table"] == "companies":
@@ -204,7 +203,7 @@ class Incoming():
                 data.append(new_request)
 
         elif action == "DELETE":
-            old = payload["new"]
+            old = payload["old"]
             company_id = old["company_id"]
             self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
             company = self.cur.fetchone()[0]

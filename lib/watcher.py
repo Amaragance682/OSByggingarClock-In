@@ -63,12 +63,9 @@ class JSONChangeHandler(FileSystemEventHandler):
         new_data = _load_json(event.src_path)
         if new_data is not None:
             common = {k: self.previous_data[k] for k in new_data.keys() if k in self.previous_data}
-            print(common)
             if common == {}:
                 for key in new_data.keys():
                     common[key] = []
-            print(common)
-            print(new_data)
             changes = self.detect_changes(common, new_data)
             success = self.callback(changes)
             if success:
