@@ -194,7 +194,7 @@ class Incoming():
                 "reason": new["reason"],
                 "status": new["status"]
             }
-            for field, value in new["extra"]:
+            for field, value in new["extra"].items():
                 new_request[field] = value
             def procedure(data):
                 data.append(new_request)
@@ -231,7 +231,7 @@ class Incoming():
                 "reason": new["reason"],
                 "status": new["status"]
             }
-            for field, value in new["extra"]:
+            for field, value in new["extra"].items():
                 new_request[field] = value
 
             def procedure(data):
@@ -328,7 +328,7 @@ class Incoming():
             if "clock_out" in new.keys():
                 new_shift["clock_out"] = new["clock_out"]
 
-            for field, value in new["extra"]:
+            for field, value in new["extra"].items():
                 new_shift[field] = value
 
             def procedure(data):
@@ -370,7 +370,7 @@ class Incoming():
             }
             if "clock_out" in new.keys():
                 new_shift["clock_out"] = new["clock_out"]
-            for field, value in new["extra"]:
+            for field, value in new["extra"].items():
                 new_shift[field] = value
 
 
