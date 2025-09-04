@@ -58,6 +58,7 @@ class Incoming():
         procedure(data)
 
         dir_name = os.path.dirname(path) or "."
+        os.makedirs(dir_name, exist_ok=True)
         with tempfile.NamedTemporaryFile("w", dir=dir_name, delete=False, encoding="utf-8") as tmp_file:
             json.dump(data, tmp_file, indent=4, ensure_ascii=False)
             temp_path = tmp_file.name
