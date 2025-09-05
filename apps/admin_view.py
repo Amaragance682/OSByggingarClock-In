@@ -1910,22 +1910,18 @@ class AdminApp(tk.Tk):
     def on_user_company_selected(self, event=None):
         comp = self.user_company_var.get()
         self.user_lb.delete(0, "end")
+        self._user_list_ids = []
 
-        if comp == "Any":
-            # show everyone (sorted is nice but optional)
-            for u in sorted(self.users, key=lambda x: (x.get("company",""), x["name"])):
-                self.user_lb.insert("end", f"{u['name']}")
-            # block adding while 'Any' is selected
-            if hasattr(self, "add_user_btn"):
-                self.add_user_btn.configure(state="disabled")
-        else:
-            for u in self.users:
-                if u["company"] == comp:
-                    self.user_lb.insert("end", f"{u['name']}")
-            if hasattr(self, "add_user_btn"):
-                self.add_user_btn.configure(state="normal")
+        for u in self.users:
+            if comp == "Any" or u.get("company") == comp:
+                self.user_lb.insert("end", u["name"])
+                self._user_list_ids.append(u["id"])
 
-        self.current_user = None
+        # correct attribute name:
+        if hasattr(self, "add_user_btn"):
+            self.add_user_btn.configure(state=("disabled" if comp == "Any" else "normal"))
+
+
 
     def _scrolled_listbox(self, parent, *, height=12):
         """Compact listbox + vertical scrollbar that doesn't grow vertically."""
@@ -1942,6 +1938,9 @@ class AdminApp(tk.Tk):
     def build_hierarchical_db_tab(self, parent):
         self.users = load_users()
         self.task_config = load_task_config()
+
+        self._user_list_ids = []   # listbox index -> user id
+
         # Title + breadcrumb
         ttk.Label(parent, text="Database Manager", style="Heading.TLabel") \
             .pack(anchor="w", padx=12, pady=(12, 6))
@@ -2484,15 +2483,23 @@ class AdminApp(tk.Tk):
 
     def edit_user(self):
         """Popup to edit the selected user’s name, PIN, commute—and now default lunch time."""
+    def edit_user(self):
         sel = self.user_lb.curselection()
         if not sel:
             return messagebox.showerror("Error", "Select a user first.")
-        text = self.user_lb.get(sel)
-        name  = text
-        user = next(u for u in self.users if u["name"] == name)
+        idx = sel[0]
+        if idx >= len(self._user_list_ids):
+            return messagebox.showerror("Error", "Invalid selection.")
+
+        uid  = self._user_list_ids[idx]
+        user = next((u for u in self.users if u["id"] == uid), None)
+        if not user:
+            return messagebox.showerror("Error", "User not found.")
+        # ... keep the rest of the dialog unchanged
+
 
         dlg = tk.Toplevel(self)
-        dlg.title(f"Edit user {name}")
+        dlg.title(f"Edit user '{user['name']}'")
 
         # — Name —
         tk.Label(dlg, text="Name:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
@@ -2549,31 +2556,44 @@ class AdminApp(tk.Tk):
         
 
     def delete_user(self):
-        """Delete the selected user after confirmation."""
-        # 1) Make sure a user is selected
         sel = self.user_lb.curselection()
         if not sel:
             return messagebox.showerror("Error", "Select a user first.")
+        idx = sel[0]
+        if idx >= len(self._user_list_ids):
+            return messagebox.showerror("Error", "Invalid selection.")
 
-        # 2) Extract the user‐ID from the listbox entry
-        list_entry = self.user_lb.get(sel[0])
-        user_id = list_entry.split(":", 1)[0]
+        uid  = self._user_list_ids[idx]
+        user = next((u for u in self.users if u["id"] == uid), None)
+        if not user:
+            return messagebox.showerror("Error", "User not found.")
 
-        # 3) Confirm deletion
-        confirm = messagebox.askyesno(
+        if not messagebox.askyesno(
             "Confirm Deletion",
-            f"Are you sure you want to delete user '{user_id}'?"
-        )
-        if not confirm:
+            f"Delete user '{user['name']}' from {user.get('company','')}?"
+        ):
             return
 
-        # 4) Remove from in‑memory list & save
-        self.users = [u for u in self.users if u["id"] != user_id]
+        # remove from users.json
+        self.users = [u for u in self.users if u["id"] != uid]
         save_users(self.users)
 
-        # 5) Refresh the UI
-        messagebox.showinfo("Deleted", f"User '{user_id}' removed.")
+        # optional: remove this user's logs (both layouts)
+        try:
+            comp = user.get("company")
+            if comp:
+                p = Path(COMPANY_FOLDER) / comp / f"{uid}.json"
+                if p.exists(): p.unlink()
+                for loc_dir in Path(COMPANY_FOLDER).iterdir():
+                    if loc_dir.is_dir():
+                        p2 = loc_dir / comp / f"{uid}.json"
+                        if p2.exists(): p2.unlink()
+        except Exception:
+            pass
+
         self.on_user_company_selected()
+        messagebox.showinfo("Deleted", f"User '{user['name']}' removed.")
+
 
 
 if __name__ == "__main__":
