@@ -68,8 +68,7 @@ class JSONChangeHandler(FileSystemEventHandler):
                     common[key] = []
             changes = self.detect_changes(common, new_data)
             success = self.callback(changes)
-            if success:
-                self.previous_data = new_data
+            self.previous_data = new_data
 
     def detect_changes(self, old, new, path=[]):
         if old == new:

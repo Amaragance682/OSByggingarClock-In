@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS companies (
 
 CREATE TABLE IF NOT EXISTS locations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    address TEXT NOT NULL,
+    address TEXT NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT now()
 );
 

@@ -62,7 +62,7 @@ class Outgoing():
                     func(cur, *args, **kwargs)
                     conn.commit()
                     return True
-            except Exception as e:
+            except psycopg2.Error as e:
                 conn.rollback()
                 print(f"DB error: {e}")
                 return False
@@ -218,7 +218,7 @@ class Outgoing():
             if operation == "added":
                 if location is not None and company is None:
                     # New location
-                    cur.execute("INSERT INTO locations (address) VALUES (%s)", [location])
+                    cur.execute("INSERT INTO locations (address) VALUES (%s) ON CONFLICT DO NOTHING", [location])
                     table = Table(box=box.ROUNDED)
                     table.add_column("Field", style="cyan")
                     table.add_column("Value", style="magenta")
@@ -248,13 +248,15 @@ class Outgoing():
                         self.console.print(table)
 
                     if isinstance(value, list):
-                        cur.execute("INSERT INTO companies (name) VALUES (%s)", [company])
-                        table = Table(box=box.ROUNDED)
-                        table.add_column("Field", style="cyan")
-                        table.add_column("Value", style="magenta")
-                        table.add_row("Company Name", company)
-                        self.console.print("[bold green]✅ Company added![/bold green]")
-                        self.console.print(table)
+                        cur.execute("INSERT INTO companies (name) VALUES (%s) ON CONFLICT DO NOTHING RETURNING id", [company])
+                        row = cur.fetchone()
+                        if row:
+                            table = Table(box=box.ROUNDED)
+                            table.add_column("Field", style="cyan")
+                            table.add_column("Value", style="magenta")
+                            table.add_row("Company Name", company)
+                            self.console.print("[bold green]✅ Company added![/bold green]")
+                            self.console.print(table)
                         for task in value:
                             insert_task(task)
                     else:
