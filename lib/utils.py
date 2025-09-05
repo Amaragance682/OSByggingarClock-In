@@ -125,10 +125,50 @@ def load_employee_logs(user):
     path = get_employee_log_path(user)
     if not os.path.exists(path):
         return []
+
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        logs = json.load(f)
+
+    changed = False
+    for log in logs:
+        # migrate legacy key → commute_minutes
+        if "commute_minutes" not in log and "commute" in log:
+            try:
+                log["commute_minutes"] = int(log.get("commute") or 0)
+            except Exception:
+                log["commute_minutes"] = 0
+            log.pop("commute", None)
+            changed = True
+        # if both exist, keep minutes and drop legacy
+        elif "commute" in log:
+            log.pop("commute", None)
+            changed = True
+
+        # keep types sane
+        try:
+            log["commute_minutes"] = int(log.get("commute_minutes", 0) or 0)
+        except Exception:
+            log["commute_minutes"] = 0
+        try:
+            log["lunch_minutes"] = int(log.get("lunch_minutes", 0) or 0)
+        except Exception:
+            log["lunch_minutes"] = 0
+
+        # ensure explicit None for open shifts
+        log.setdefault("clock_out", None)
+
+    if changed:
+        save_employee_logs(user, logs)
+
+    return logs
 
 def save_employee_logs(user, logs):
+    # scrub legacy key before writing
+    for log in logs:
+        if "commute" in log:
+            log["commute_minutes"] = int(log.get("commute_minutes", log["commute"]) or 0)
+            log.pop("commute", None)
+
     path = get_employee_log_path(user)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(logs, f, indent=4)
@@ -136,17 +176,19 @@ def save_employee_logs(user, logs):
 def create_shift_entry(user, task, location):
     """
     Called when employee clocks in.
-    Records the real clock_in time, plus commute total in minutes.
+    Records real clock_in and the user's default commute in minutes.
     """
     now = datetime.now().replace(second=0, microsecond=0)
-    commute = int(user.get("commute_minutes", 0))
     return {
         "id": str(uuid.uuid4()),
-        "task":       task,
-        "location":   location,
-        "clock_in":   now.isoformat(),
-        "commute":    commute,
+        "task":            task,
+        "location":        location,
+        "clock_in":        now.isoformat(),
+        "clock_out":       None,
+        "lunch_minutes":   int(user.get("lunch_minutes", 0) or 0),
+        "commute_minutes": int(user.get("commute_minutes", 0) or 0),
     }
+
 
 def close_last_shift(logs, user):
     """

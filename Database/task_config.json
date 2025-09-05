@@ -1,39 +1,38 @@
 {
   "Eyravegur 28-30, Selfoss": {
-    "A1 málun": [
+    "company2": [
       {
-        "id": "b702a7d4-0006-4e8c-8870-03c16c99c3b9",
-        "name": "test",
+        "id": "365183ac-a4f7-4b35-bef5-b045bc3d2f21",
+        "name": "mitt task123",
+        "completed": false
+      }
+    ],
+    "company1": [
+      {
+        "id": "4521586c-de33-46b6-820c-5b1d0efa3091",
+        "name": "olistask",
         "completed": false
       }
     ]
   },
-  "whatthefuckingshit3": {
-    "gamer": [
+  "reykjavik": {
+    "company2": [
       {
-        "id": "984536b4-38d0-4926-ba02-b323c5f657e2",
-        "name": "gamer2",
-        "completed": false
-      },
+        "id": "40227106-09e8-4984-b841-619baccc38d4",
+        "name": "reykjaviktask",
+        "completed": true
+      }
+    ],
+    "company1": [
       {
-        "id": "d68bb185-77c5-43cb-b606-46ad75f1cef0",
-        "name": "newtask",
-        "completed": false
-      },
-      {
-        "id": "88e4c9a0-1a37-4cec-bbd8-5d635c0d9897",
-        "name": "Fix windows",
+        "id": "86a3b4f2-95f4-4a81-acba-d84da025e31c",
+        "name": "verkefni1",
         "completed": false
       }
     ]
   },
-  "newloc": {
-    "skibidi": [
-      {
-        "id": "16237fc9-2e64-4a0d-8cd3-6f309c36fae1",
-        "name": "mogus",
-        "completed": false
-      }
-    ]
+  "location1": {
+    "company2": [],
+    "company1": []
   }
 }
