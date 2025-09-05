@@ -50,6 +50,9 @@ class JSONChangeHandler(FileSystemEventHandler):
     def on_modified(self, event):
         if event.is_directory or not event.src_path.endswith(".json"):
             return
+        if self.path not in event.src_path:
+            return
+        print(self.path)
 
         now = time.time()
         if event.src_path in self._last_modified and now - self._last_modified[event.src_path] < 0.1:

@@ -71,9 +71,13 @@ class Outgoing():
         return wrapper
 
     def init_observer(self, callback, path):
+        if os.path.isfile(path):
+            watch_dir = os.path.dirname(os.path.abspath(path))
+        else:
+            watch_dir = path
         watcher = JSONChangeHandler(callback, path)
         observer = Observer()
-        observer.schedule(watcher, path=path, recursive=True)
+        observer.schedule(watcher, path=watch_dir, recursive=True)
         observer.start()
         return (observer, watcher, path)
 
