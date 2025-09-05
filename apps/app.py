@@ -1,10 +1,14 @@
+from logging import error
 import tkinter as tk
 import uuid
+
+from dotenv.main import load_dotenv
 from lib.dateandtime import DateAndTime
 from tktimepicker import SpinTimePickerOld, constants
 import os
 import sys
 import json
+import dotenv
 from datetime import datetime
 from tkinter import messagebox, ttk, simpledialog
 from PIL import Image, ImageTk
@@ -23,10 +27,10 @@ from lib.utils import (
     resource_path
 )
 
-# !!!CHANGE THIS TO CURRENT LOCATION OF THE LAPTOP!!!
-# ==================================================#
-LOCATION = "Dalshverfi III, 230 Reykjanes"
-# ==================================================#
+load_dotenv()
+LOCATION = os.getenv("LOCATION")
+if LOCATION is None:
+    raise RuntimeError("Location not set in .env, please set it before continuing")
 
 def get_incomplete_tasks(task_config, company, location):
     """

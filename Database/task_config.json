@@ -1,260 +1,38 @@
 {
   "Eyravegur 28-30, Selfoss": {
-    "OS Byggingar": [
+    "company2": [
       {
-        "name": "Aðstöðusköpun, rekstur og stjórnun",
+        "id": "365183ac-a4f7-4b35-bef5-b045bc3d2f21",
+        "name": "mitt task123",
         "completed": false
       }
     ],
-    "Loftorka Reykjavik": [
+    "company1": [
       {
-        "name": "Lóð og stæði, frágangur í verklok",
-        "completed": false
-      },
-      {
-        "name": "Grunnlagnir, gröftur og fyllingar",
-        "completed": false
-      }
-    ],
-    "JL Lausnir": [
-      {
-        "name": "Gluggar og frontar",
-        "completed": false
-      },
-      {
-        "name": "Utanhúsklæðning",
-        "completed": false
-      },
-      {
-        "name": "Handrið og flóttastigar",
-        "completed": false
-      },
-      {
-        "name": "Hurðir, innréttingar, fataskápar ofl.",
-        "completed": false
-      },
-      {
-        "name": "Milliveggir",
-        "completed": false
-      },
-      {
-        "name": "Gólfefni",
-        "completed": false
-      }
-    ],
-    "Takgg": [
-      {
-        "name": "Burðavirkni, sökklar og botnplata",
-        "completed": false
-      },
-      {
-        "name": "Gluggar og frontar",
-        "completed": false
-      },
-      {
-        "name": "Handrið og flóttastigar",
-        "completed": false
-      }
-    ],
-    "Rafakur": [
-      {
-        "name": "Raflagnir með tækjum",
-        "completed": false
-      }
-    ],
-    "Rörtönginn": [
-      {
-        "name": "Pípulagnir með tækjum",
-        "completed": false
-      }
-    ],
-    "Blikklausnir": [
-      {
-        "name": "Loftræsing og brunavarnir",
-        "completed": false
-      }
-    ],
-    "A1 málun": [
-      {
-        "name": "Málning",
+        "id": "4521586c-de33-46b6-820c-5b1d0efa3091",
+        "name": "olistask",
         "completed": false
       }
     ]
   },
-  "Reykjavíkuvegur 60, 220 Hafnafjörður": {
-    "OS Byggingar": [
+  "reykjavik": {
+    "company2": [
       {
-        "name": "Aðstöðusköpun, rekstur og stjórnun",
-        "completed": false
-      },
-      {
-        "name": "Hjálpa norsku gröfurunum",
-        "completed": false
+        "id": "40227106-09e8-4984-b841-619baccc38d4",
+        "name": "reykjaviktask",
+        "completed": true
       }
     ],
-    "Loftorka Reykjavik": [
+    "company1": [
       {
-        "name": "Lóð og stæði, frágangur í verklok",
-        "completed": false
-      },
-      {
-        "name": "Grunnlagnir, gröftur og fyllingar",
-        "completed": false
-      }
-    ],
-    "JL Lausnir": [
-      {
-        "name": "Gluggar og frontar",
-        "completed": false
-      },
-      {
-        "name": "Utanhúsklæðning",
-        "completed": false
-      },
-      {
-        "name": "Handrið og flóttastigar",
-        "completed": false
-      },
-      {
-        "name": "Hurðir, innréttingar, fataskápar ofl.",
-        "completed": false
-      },
-      {
-        "name": "Milliveggir",
-        "completed": false
-      },
-      {
-        "name": "Gólfefni",
-        "completed": false
-      }
-    ],
-    "Takgg": [
-      {
-        "name": "Burðavirkni, sökklar og botnplata",
-        "completed": false
-      },
-      {
-        "name": "Gluggar og frontar",
-        "completed": false
-      },
-      {
-        "name": "Handrið og flóttastigar",
-        "completed": false
-      }
-    ],
-    "Rafakur": [
-      {
-        "name": "Raflagnir með tækjum",
-        "completed": false
-      }
-    ],
-    "Rörtönginn": [
-      {
-        "name": "Pípulagnir með tækjum",
-        "completed": false
-      }
-    ],
-    "Blikklausnir": [
-      {
-        "name": "Loftræsing og brunavarnir",
-        "completed": false
-      }
-    ],
-    "A1 málun": [
-      {
-        "name": "Málning",
+        "id": "86a3b4f2-95f4-4a81-acba-d84da025e31c",
+        "name": "verkefni1",
         "completed": false
       }
     ]
   },
-  "Dalshverfi III, 230 Reykjanes": {
-    "OS Byggingar": [
-      {
-        "name": "Aðstöðusköpun, rekstur og stjórnun",
-        "completed": false
-      },
-      {
-        "name": "Tölvuvinna/Appþróun",
-        "completed": false
-      },
-      {
-        "name": "útivinna",
-        "completed": false
-      }
-    ],
-    "Loftorka Reykjavik": [
-      {
-        "name": "Lóð og stæði, frágangur í verklok",
-        "completed": false
-      },
-      {
-        "name": "Grunnlagnir, gröftur og fyllingar",
-        "completed": false
-      }
-    ],
-    "JL Lausnir": [
-      {
-        "name": "Gluggar og frontar",
-        "completed": false
-      },
-      {
-        "name": "Utanhúsklæðning",
-        "completed": false
-      },
-      {
-        "name": "Handrið og flóttastigar",
-        "completed": false
-      },
-      {
-        "name": "Hurðir, innréttingar, fataskápar ofl.",
-        "completed": false
-      },
-      {
-        "name": "Milliveggir",
-        "completed": false
-      },
-      {
-        "name": "Gólfefni",
-        "completed": false
-      }
-    ],
-    "Takgg": [
-      {
-        "name": "Burðavirkni, sökklar og botnplata",
-        "completed": false
-      },
-      {
-        "name": "Gluggar og frontar",
-        "completed": false
-      },
-      {
-        "name": "Handrið og flóttastigar",
-        "completed": false
-      }
-    ],
-    "Rafakur": [
-      {
-        "name": "Raflagnir með tækjum",
-        "completed": false
-      }
-    ],
-    "Rörtönginn": [
-      {
-        "name": "Pípulagnir með tækjum",
-        "completed": false
-      }
-    ],
-    "Blikklausnir": [
-      {
-        "name": "Loftræsing og brunavarnir",
-        "completed": false
-      }
-    ],
-    "A1 málun": [
-      {
-        "name": "Málning",
-        "completed": false
-      }
-    ]
+  "location1": {
+    "company2": [],
+    "company1": []
   }
 }

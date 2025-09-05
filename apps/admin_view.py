@@ -7,6 +7,8 @@ from tkinter import ttk, messagebox, simpledialog
 import os
 import sys
 from datetime import datetime, timedelta
+import shutil
+from pathlib import Path
 
 
 
@@ -24,7 +26,7 @@ from lib.utils import (
 )
 
 COMPANY_FOLDER = resource_path("Database/Fyrirtaeki")
-REQUESTS_FOLDER = resource_path("Database/Requests")
+REQUESTS_FOLDER = resource_path("Database/requests")
 APP_BG = "#f4f4f4"
 
 def _parse_iso(s: str):
@@ -72,6 +74,153 @@ class AdminApp(tk.Tk):
 
         self.create_navigation()
         self.create_shift_viewer()
+
+    def _all_companies(self):
+        # union of companies across all locations (from task_config + users)
+        from_cfg = {c for locmap in self.task_config.values() for c in locmap.keys()}
+        from_users = {u.get("company") for u in self.users}
+        return sorted({c for c in (from_cfg | from_users) if c})
+
+    def _sync_company_globally(self, company: str):
+        """Ensure `company` exists (as empty task list) at every location."""
+        for loc in self.task_config.keys():
+            self.task_config.setdefault(loc, {}).setdefault(company, [])
+
+    def _sync_all_companies_to_location(self, location: str) -> None:
+        """Ensure every known company exists at `location`."""
+        # create the location mapping if missing
+        locmap = self.task_config.setdefault(location, {})
+        # union of companies from config and users.json
+        companies = {u.get("company") for u in self.users}
+        companies |= {c for locmap2 in self.task_config.values() for c in locmap2.keys()}
+        companies.discard(None)
+        for comp in companies:
+            locmap.setdefault(comp, [])
+
+    def _sync_company_to_all_locations(self, company: str) -> None:
+        """Ensure `company` exists at every location."""
+        if not company:
+            return
+        for loc in list(self.task_config.keys()):
+            self.task_config.setdefault(loc, {}).setdefault(company, [])
+
+    def _company_data_dirs(self, company: str):
+        """
+        Return a list of directories on disk that store this company's logs.
+        Supports both:
+        Database/Fyrirtaeki/<company>/
+        Database/Fyrirtaeki/<location>/<company>/
+        """
+        root = Path(COMPANY_FOLDER)
+        paths = []
+
+        # Flat layout
+        d = root / company
+        if d.is_dir():
+            paths.append(d)
+
+        # Location/company layout
+        for loc in root.iterdir():
+            if loc.is_dir():
+                dd = loc / company
+                if dd.is_dir():
+                    paths.append(dd)
+
+        return paths
+
+    def _merge_company_dirs(self, src: Path, dst: Path):
+        """Move files from src to dst; keep existing dst files; then remove src."""
+        dst.mkdir(parents=True, exist_ok=True)
+        for p in src.iterdir():
+            target = dst / p.name
+            if target.exists():
+                # keep existing; optionally you could de-dup/merge JSON here
+                continue
+            shutil.move(str(p), str(target))
+        shutil.rmtree(src, ignore_errors=True)
+
+    def _rename_company_on_disk(self, old: str, new: str):
+        """Rename company folders (both layouts) and requests folder, merging if needed."""
+        root = Path(COMPANY_FOLDER)
+
+        # Flat
+        src = root / old
+        if src.is_dir():
+            dst = root / new
+            if dst.exists():
+                self._merge_company_dirs(src, dst)
+            else:
+                src.rename(dst)
+
+        # Per-location
+        for loc in root.iterdir():
+            if not loc.is_dir():
+                continue
+            src = loc / old
+            if src.is_dir():
+                dst = loc / new
+                if dst.exists():
+                    self._merge_company_dirs(src, dst)
+                else:
+                    src.rename(dst)
+
+        # requests/<company>
+        rold = Path(REQUESTS_FOLDER) / old
+        if rold.is_dir():
+            rnew = Path(REQUESTS_FOLDER) / new
+            if rnew.exists():
+                self._merge_company_dirs(rold, rnew)
+            else:
+                rold.rename(rnew)
+
+    def _delete_company_on_disk(self, company: str, *, archive: bool = False):
+        """
+        Delete or archive all folders for this company (both layouts),
+        and remove requests/<company>.
+        """
+        dirs = self._company_data_dirs(company)
+        if archive:
+            ar = Path(resource_path("Database/_archive/Fyrirtaeki"))
+            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+            for d in dirs:
+                dest = ar / d.relative_to(Path(COMPANY_FOLDER))
+                dest = dest.with_name(f"{dest.name}-{ts}")
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(d), str(dest))
+        else:
+            for d in dirs:
+                shutil.rmtree(d, ignore_errors=True)
+
+        # requests/<company>
+        req_dir = Path(REQUESTS_FOLDER) / company
+        if req_dir.is_dir():
+            shutil.rmtree(req_dir, ignore_errors=True)
+
+
+    def locations_for_company(self, company: str):
+        """Every location where this company exists in task_config."""
+        return [loc for loc, cmap in self.task_config.items() if company in cmap]
+
+    def _select_location_in_listbox(self, loc: str):
+        """Visually select a location in the Locations listbox if present."""
+        if not hasattr(self, "loc_lb") or not self.loc_lb.winfo_exists():
+            return
+        try:
+            items = list(self.loc_lb.get(0, "end"))
+            idx = items.index(loc)
+        except ValueError:
+            return
+        self.loc_lb.selection_clear(0, "end")
+        self.loc_lb.selection_set(idx)
+        self.loc_lb.see(idx)
+
+    def _all_companies(self):
+        """All real companies (no 'Any', no blanks)."""
+        self.task_config = load_task_config()
+        from_cfg   = {c for locmap in self.task_config.values() for c in locmap.keys()}
+        from_users = {u.get("company") for u in self.users}
+        bad = {"", None, "Any", "any", "ANY"}
+        return sorted(c for c in (from_cfg | from_users) if c not in bad)
 
 
     def create_navigation(self):
@@ -206,7 +355,7 @@ class AdminApp(tk.Tk):
             textvariable=self.location_var, state="readonly",
             width=18, style="Filter.TCombobox"
         )
-        self.location_dropdown.bind("<<ComboboxSelected>>", self.on_loc_selected)
+        self.location_dropdown.bind("<<ComboboxSelected>>", self.on_filter_loc_selected)
 
         # Company
         self.company_dropdown = self._chip_combobox(
@@ -214,7 +363,7 @@ class AdminApp(tk.Tk):
             textvariable=self.company_var, state="readonly",
             width=18, style="Filter.TCombobox"
         )
-        self.company_dropdown.bind("<<ComboboxSelected>>", self.on_comp_selected)
+        self.company_dropdown.bind("<<ComboboxSelected>>", self.on_filter_comp_selected)
 
         # User
         self.user_dropdown = self._chip_combobox(
@@ -407,38 +556,56 @@ class AdminApp(tk.Tk):
         self.refresh_shifts()
 
 
-
     def on_loc_selected(self, evt=None):
         sel = self.loc_lb.curselection()
         self.current_loc = self.loc_lb.get(sel) if sel else None
+
+        # do not auto-select a company
+        self.current_comp = None
+
         self.refresh_companies()
-
-        # Limit the Users company filter to the selected location's companies
-        if hasattr(self, "user_company_combo"):
-            comps = sorted(self.task_config.get(self.current_loc, {}).keys()) if self.current_loc else []
-            self.user_company_combo["values"] = comps
-            if comps:
-                self.user_company_var.set(comps[0])
-            else:
-                self.user_company_var.set("")
-            self.on_user_company_selected()
-
-        # Breadcrumb
-        comp = getattr(self, "current_comp", None) or "—"
-        self.breadcrumb_var.set(f"{self.current_loc or '—'}  ▸  {comp}")
-
-    def on_comp_selected(self, evt=None):
-        sel = self.comp_lb.curselection()
-        self.current_comp = self.comp_lb.get(sel) if sel else None
         self.refresh_tasks()
 
-        # Breadcrumb
+        comp = self.current_comp or "—"
+        self.breadcrumb_var.set(f"{self.current_loc or '—'}  ▸  {comp}")
+
+
+    def on_comp_selected(self, evt=None):
+        lb = evt.widget if evt else getattr(self, "comp_lb", None)
+        if not lb or not lb.winfo_exists():
+            return
+        try:
+            sel = lb.curselection()
+            self.current_comp = lb.get(sel) if sel else None
+        except tk.TclError:
+            self.current_comp = None
+            return
+
+        # If company isn’t at current location, jump to a location that has it.
+        if self.current_comp:
+            locs = self.locations_for_company(self.current_comp)
+            if locs:
+                if getattr(self, "current_loc", None) not in locs:
+                    self.current_loc = locs[0]
+                    self._select_location_in_listbox(self.current_loc)
+
+        self.refresh_tasks()
         self.breadcrumb_var.set(f"{getattr(self, 'current_loc', None) or '—'}  ▸  {self.current_comp or '—'}")
+
+
 
 
     def get_company_names(self):
         return [name for name in os.listdir(COMPANY_FOLDER)
                 if os.path.isdir(os.path.join(COMPANY_FOLDER, name))]
+
+    def on_filter_loc_selected(self, _evt=None):
+        self.refresh_shifts()
+
+    def on_filter_comp_selected(self, _evt=None):
+        self.refresh_shifts()
+
+
 
     def refresh_shifts(self, event=None):
         # 1) clear existing cards
@@ -448,13 +615,12 @@ class AdminApp(tk.Tk):
         # 2) grab filter settings
         loc_filter   = self.location_var.get()
         comp_filter  = self.company_var.get()
-        user_filter = self.user_var.get()
+        user_filter  = self.user_var.get()
         task_filter  = self.task_var.get()
         time_range   = self.time_range_var.get()
 
-        # 3) compute date window
+        # 3) compute date window (open-ended into the future)
         today = datetime.now().date()
-        # figure out our window
         if time_range == "Today":
             start_date = today
         elif time_range == "Last 3 Days":
@@ -468,79 +634,84 @@ class AdminApp(tk.Tk):
         elif time_range == "Last Year":
             start_date = today - timedelta(days=365)
         elif time_range == "All Time":
-            # include everything
             from datetime import date
             start_date = date.min
         else:
             start_date = today
 
-        # build an inclusive datetime window for overlap tests
         window_start = datetime.combine(start_date, datetime.min.time())
-        window_end   = datetime.now()  # up to 'now' is fine
+        # 👇 open the end of the window so future shifts are included
+        window_end   = datetime.max
 
-        # 4) always drive the dropdowns from the in‑memory config
+        # 4) dropdowns
         cfg = self.task_config
-
-        # Locations dropdown = every location in config
         all_locs = sorted(cfg.keys())
         self.location_dropdown['values'] = ["Any"] + all_locs
 
-        # Companies dropdown = 
-        if loc_filter!="Any":
+        if loc_filter != "Any":
             comps = sorted(cfg.get(loc_filter, {}).keys())
         else:
-            # union of every company across locations
             comps = sorted({c for sub in cfg.values() for c in sub.keys()})
         self.company_dropdown['values'] = ["Any"] + comps
 
-        # Tasks dropdown =
         tasks_set = set()
         if loc_filter!="Any" and comp_filter!="Any":
-            # exactly that slice
             raw = cfg.get(loc_filter, {}).get(comp_filter, [])
-            tasks_set = { t["name"] if isinstance(t, dict) else t for t in raw }
-        elif loc_filter!="Any":  # any company at that location
+            tasks_set = {t["name"] if isinstance(t, dict) else t for t in raw}
+        elif loc_filter!="Any":
             for raw in cfg.get(loc_filter, {}).values():
-                tasks_set |= { t["name"] if isinstance(t, dict) else t for t in raw }
-        elif comp_filter!="Any":  # that company across all locations
+                tasks_set |= {t["name"] if isinstance(t, dict) else t for t in raw}
+        elif comp_filter!="Any":
             for locmap in cfg.values():
                 raw = locmap.get(comp_filter, [])
-                tasks_set |= { t["name"] if isinstance(t, dict) else t for t in raw }
+                tasks_set |= {t["name"] if isinstance(t, dict) else t for t in raw}
         else:
-            # truly “Any”/“Any” → every task in the entire config
             for locmap in cfg.values():
                 for raw in locmap.values():
-                    tasks_set |= { t["name"] if isinstance(t, dict) else t for t in raw }
-
+                    tasks_set |= {t["name"] if isinstance(t, dict) else t for t in raw}
         self.task_dropdown['values'] = ["Any"] + sorted(tasks_set)
 
-        # 5) now build the two lists of shifts (active vs finished), but *still* apply the filters
+        # Users dropdown (respect Company and optional Location)
+        if comp_filter != "Any":
+            candidate_users = [u for u in self.users if u["company"] == comp_filter]
+        else:
+            candidate_users = list(self.users)
+        if loc_filter != "Any":
+            companies_at_loc = set(cfg.get(loc_filter, {}).keys())
+            candidate_users = [u for u in candidate_users if u["company"] in companies_at_loc]
+        user_names = sorted({u["name"] for u in candidate_users})
+        self.user_dropdown['values'] = ["Any"] + user_names
+        if self.user_var.get() not in (["Any"] + user_names):
+            self.user_var.set("Any")
+
+        # 5) build lists; now we also collect SCHEDULED shifts (start > now)
+        now_dt = datetime.now()
         users = [
-        u for u in self.users
-        if (comp_filter=="Any" or u["company"]==comp_filter)
-        and (user_filter  =="Any" or u["name"]   ==user_filter)
+            u for u in self.users
+            if (comp_filter == "Any" or u["company"] == comp_filter)
+            and (user_filter  == "Any" or u["name"]    == user_filter)
         ]
 
-        active, finished = [], []
+        active, finished, scheduled = [], [], []
         for u in users:
             for log in load_employee_logs(u):
                 s = _parse_iso(log.get("clock_in"))
-                e = _parse_iso(log.get("clock_out")) or datetime.now()  # open shifts end 'now'
+                e = _parse_iso(log.get("clock_out")) or now_dt
                 if not s:
                     continue
 
-                # location / task filters still apply
+                # location / task filters
                 if loc_filter != "Any" and log.get("location") != loc_filter:
                     continue
                 if task_filter != "Any" and log.get("task") != task_filter:
                     continue
 
-                # keep only shifts whose interval overlaps the selected window
-                # (this ALSO keeps all active shifts regardless of when they started)
+                # keep only shifts whose interval overlaps the window
                 if e < window_start or s > window_end:
                     continue
 
                 end = log.get("clock_out")
+                commute_raw = log.get("commute_minutes", log.get("commute", 0))
                 rec = {
                     "name":            u["name"],
                     "uid":             u["id"],
@@ -549,16 +720,19 @@ class AdminApp(tk.Tk):
                     "clock_in":        log["clock_in"],
                     "clock_out":       end,
                     "lunch_minutes":   log.get("lunch_minutes", u.get("lunch_minutes", 0)),
-                    "commute_minutes": log.get("commute_minutes", u.get("commute_minutes", 0)),
+                    "commute_minutes": int(commute_raw or 0),
                 }
-                (finished if end else active).append(rec)
 
+                if s > now_dt:
+                    scheduled.append(rec)      # starts in the future
+                elif end is None:
+                    active.append(rec)         # open shift
+                else:
+                    finished.append(rec)       # ended in the past
 
         def mark_conflict_groups(recs):
-            # bucket by (user_id, date)
             buckets = defaultdict(list)
             for r in recs:
-                # derive the "day" only from clock_in; skip malformed entries
                 s = _parse_iso(r.get("clock_in"))
                 if not s:
                     continue
@@ -574,11 +748,8 @@ class AdminApp(tk.Tk):
                     if not s:
                         continue
                     if e is None:
-                        # active/open shift: treat as ending now for overlap purposes
                         e = now_dt
-                    # guard against inverted intervals
                     if e < s:
-                        # if data is bad, swap or skip; here we skip marking to avoid false positives
                         continue
                     intervals.append((r, s, e))
 
@@ -587,19 +758,16 @@ class AdminApp(tk.Tk):
                     continue
 
                 parent = list(range(n))
-
                 def find(i):
                     while parent[i] != i:
                         parent[i] = parent[parent[i]]
                         i = parent[i]
                     return i
-
                 def union(i, j):
                     ri, rj = find(i), find(j)
                     if ri != rj:
                         parent[rj] = ri
 
-                # link overlapping pairs
                 for i in range(n):
                     _, s1, e1 = intervals[i]
                     for j in range(i+1, n):
@@ -607,7 +775,6 @@ class AdminApp(tk.Tk):
                         if s2 < e1 and s1 < e2:
                             union(i, j)
 
-                # collect connected components and assign conflict_group ids
                 comps = defaultdict(list)
                 for i in range(n):
                     comps[find(i)].append(i)
@@ -620,11 +787,12 @@ class AdminApp(tk.Tk):
                             rec["conflict_group"] = group_id
                         group_id += 1
 
-        # --- run conflict marking on both lists ---
+        # mark conflicts in all three buckets
         mark_conflict_groups(active)
         mark_conflict_groups(finished)
+        mark_conflict_groups(scheduled)
 
-        # --- optional: zero out commute for 2nd+ shifts same day ---
+        # Optional commute zero-out for 2nd+ finished shift same day
         finished.sort(key=lambda info: info["clock_in"])
         seen = set()
         for rec in finished:
@@ -634,8 +802,9 @@ class AdminApp(tk.Tk):
             else:
                 seen.add(day_key)
 
-        # finally render
-        self.display_shifts(active, finished)
+        # render (now passes the 'scheduled' list too)
+        self.display_shifts(active, finished, scheduled)
+
 
 
 
@@ -711,7 +880,7 @@ class AdminApp(tk.Tk):
                 if user is None:
                     employee_name = employee_id
                 else:
-                    employee_name = user["name"]
+                    employee_name = (user["name"], user["id"])
                 filepath = os.path.join(company_path, filename)
 
                 try:
@@ -847,51 +1016,57 @@ class AdminApp(tk.Tk):
         chip.pack(side="left", padx=6, pady=2)
         return cb
 
-    def display_shifts(self, active, finished):
+    def display_shifts(self, active, finished, scheduled=None):
+        scheduled = scheduled or []
+
         # Clear existing
         for w in self.shift_frame.winfo_children():
             w.destroy()
 
         APP_BG = self["bg"] if self["bg"] else "#f4f4f4"
-
         wrapper = tk.Frame(self.shift_frame, bg=APP_BG)
         wrapper.pack(fill="x", expand=True, padx=10, pady=8)
 
-        COLS = 3  # ← three columns for both sections
+        COLS = 3
 
-        # ── Currently Working (top) ────────────────────────────────────────
+        # ── Currently Working
         outer_a, body_a = self._section_card(wrapper, "Currently Working",
                                             accent="#f49301", fill_y=False)
         outer_a.pack(fill="x", expand=False, padx=6, pady=6)
-
         if active:
-            for c in range(COLS):
-                body_a.grid_columnconfigure(c, weight=1, uniform="actcol")
+            for c in range(COLS): body_a.grid_columnconfigure(c, weight=1, uniform="actcol")
             for i, info in enumerate(active):
                 r, c = divmod(i, COLS)
-                card = self._shift_card(body_a, info, active=True)
-                card.grid(row=r, column=c, sticky="nsew", padx=6, pady=6)
+                self._shift_card(body_a, info, active=True).grid(row=r, column=c, sticky="nsew", padx=6, pady=6)
         else:
             tk.Label(body_a, text="No one is currently working.",
-                    font=("Helvetica", 11, "italic"),
-                    fg="gray50", bg="#ffffff").pack(anchor="w", padx=10, pady=8)
+                    font=("Helvetica", 11, "italic"), fg="gray50", bg="#ffffff").pack(anchor="w", padx=10, pady=8)
 
-        # ── Finished Shifts (bottom) ───────────────────────────────────────
+        # ── Scheduled (future)  ← NEW
+        outer_s, body_s = self._section_card(wrapper, "Scheduled Shifts",
+                                            accent="#2563eb", fill_y=False)
+        outer_s.pack(fill="x", expand=False, padx=6, pady=6)
+        if scheduled:
+            for c in range(COLS): body_s.grid_columnconfigure(c, weight=1, uniform="schcol")
+            for i, info in enumerate(scheduled):
+                r, c = divmod(i, COLS)
+                self._shift_card(body_s, info, active=False).grid(row=r, column=c, sticky="nsew", padx=6, pady=6)
+        else:
+            tk.Label(body_s, text="No scheduled shifts in range.",
+                    font=("Helvetica", 11, "italic"), fg="gray50", bg="#ffffff").pack(anchor="w", padx=10, pady=8)
+
+        # ── Finished
         outer_f, body_f = self._section_card(wrapper, "Finished Shifts",
                                             accent="#2e7730", fill_y=False)
         outer_f.pack(fill="x", expand=False, padx=6, pady=6)
-
         if finished:
-            for c in range(COLS):
-                body_f.grid_columnconfigure(c, weight=1, uniform="fincol")
+            for c in range(COLS): body_f.grid_columnconfigure(c, weight=1, uniform="fincol")
             for i, info in enumerate(finished):
                 r, c = divmod(i, COLS)
-                card = self._shift_card(body_f, info, active=False)
-                card.grid(row=r, column=c, sticky="nsew", padx=6, pady=6)
+                self._shift_card(body_f, info, active=False).grid(row=r, column=c, sticky="nsew", padx=6, pady=6)
         else:
             tk.Label(body_f, text="No finished shifts in range.",
-                    font=("Helvetica", 11, "italic"),
-                    fg="gray50", bg="#ffffff").pack(anchor="w", padx=10, pady=8)
+                    font=("Helvetica", 11, "italic"), fg="gray50", bg="#ffffff").pack(anchor="w", padx=10, pady=8)
 
 
 
@@ -970,7 +1145,17 @@ class AdminApp(tk.Tk):
         lunch_m   = int(info.get("lunch_minutes", 0) or 0)
         commute_m = int(info.get("commute_minutes", 0) or 0)
 
-        # compute totals for finished shifts
+        # status chip (ACTIVE / SCHEDULED / FINISHED)
+        now_dt = datetime.now()
+        is_scheduled = (not active) and (start_dt > now_dt)
+        if active:
+            status_text, status_bg, status_fg = "ACTIVE", "#fde68a", "#92400e"
+        elif is_scheduled:
+            status_text, status_bg, status_fg = "SCHEDULED", "#dbeafe", "#1e40af"   # blue
+        else:
+            status_text, status_bg, status_fg = "FINISHED", "#d1fae5", "#065f46"
+
+        # compute totals for finished & scheduled
         summary_text = ""
         if end_dt:
             secs = (end_dt - start_dt).total_seconds()
@@ -1071,7 +1256,7 @@ class AdminApp(tk.Tk):
 
         win = tk.Toplevel(self)
         win.title("Edit Finished Shift")
-        win.geometry("360x380")
+        win.geometry("360x420")
 
         # ─ Location
         tk.Label(win, text="Location").pack(pady=(6,0))
@@ -1159,6 +1344,7 @@ class AdminApp(tk.Tk):
             target["clock_out"]       = new_out_dt.strftime("%Y-%m-%d %H:%M")
             target["lunch_minutes"]   = lm
             target["commute_minutes"] = cm
+            target.pop("commute", None)
 
             save_employee_logs(user, logs)
             messagebox.showinfo("Saved", "Shift updated.")
@@ -1166,7 +1352,7 @@ class AdminApp(tk.Tk):
             self.refresh_shifts()
 
 
-        tk.Button(win, text="Save", width=12, height=2, command=save_changes).pack(pady=12)
+        tk.Button(win, text="Save", width=12, height=2, bg="#b7f7b0", activebackground="#a3e6a1", command=save_changes).pack(pady=12)
 
 
 
@@ -1230,6 +1416,8 @@ class AdminApp(tk.Tk):
         MUTED      = "#6b7280"
         CHIP_BG    = {"pending": "#fde68a", "approved": "#d1fae5", "rejected": "#fee2e2"}
         CHIP_FG    = {"pending": "#92400e", "approved": "#065f46", "rejected": "#991b1b"}
+
+        employee, employee_id = employee
 
         # helpers for file update
         orig_start = req.get("requested_start")
@@ -1387,7 +1575,7 @@ class AdminApp(tk.Tk):
         def handle_finalize():
             st = status_var.get().lower()
             if st == "approved":
-                self.finalize_request(req, employee, company, filepath)
+                self.finalize_request(req, employee_id, company, filepath)
             elif st == "rejected":
                 if messagebox.askyesno("Confirm Removal",
                                     f"Are you sure you want to delete the request from {employee}?"):
@@ -1420,6 +1608,16 @@ class AdminApp(tk.Tk):
 
         log_path = os.path.join(COMPANY_FOLDER, company, f"{employee}.json")
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        # Prefer location/company layout if it exists or location is provided
+        base_dir_direct = Path(COMPANY_FOLDER) / company
+        base_dir_loc    = Path(COMPANY_FOLDER) / req.get("location", "") / company
+        if base_dir_loc.exists() or (req.get("location") and not base_dir_direct.exists()):
+            base_dir = base_dir_loc
+        else:
+            base_dir = base_dir_direct
+        base_dir.mkdir(parents=True, exist_ok=True)
+        log_path = str(base_dir / f"{employee}.json")
+
 
         new_start = parse_dt(req["requested_start"])
         new_end = parse_dt(req["requested_end"])
@@ -1432,7 +1630,9 @@ class AdminApp(tk.Tk):
             "task": req["task"],
             "location": req["location"],
             "clock_in": req["requested_start"],
-            "clock_out": req["requested_end"]
+            "clock_out": req["requested_end"],
+            "lunch_minutes": req["lunch_minutes"],
+            "commute_minutes": req["commute_minutes"]
         }
 
         conflicts = []  # <-- Initialize here
@@ -1477,10 +1677,10 @@ class AdminApp(tk.Tk):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 all_requests = json.load(f)
-            all_requests = [r for r in all_requests if not (
-                r.get("requested_start") == req.get("requested_start") and
-                r.get("requested_end") == req.get("requested_end")
-            )]
+            all_requests = [
+                r for r in all_requests
+                if r.get("requested_start") != req.get("requested_start") or r.get("requested_end") != req.get("requested_end")
+            ]
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(all_requests, f, indent=4, ensure_ascii=False)
         except Exception as e:
@@ -1706,21 +1906,27 @@ class AdminApp(tk.Tk):
         right = tk.Frame(bar, bg=self.APP_BG)
         right.pack(side="right")
         return left, right
-
-    def on_loc_selected(self, evt):
-        sel = self.loc_lb.get(self.loc_lb.curselection())
-        # populate companies for that loc…
-        # clear tasks panel
-
+    
     def on_user_company_selected(self, event=None):
-        """When the user picks a company, reload the user listbox."""
         comp = self.user_company_var.get()
         self.user_lb.delete(0, "end")
-        for u in self.users:
-            if u["company"] == comp:
-                self.user_lb.insert("end", f"{u['id']}: {u['name']}")
-        # clear any selection so downstream edits don’t break
+
+        if comp == "Any":
+            # show everyone (sorted is nice but optional)
+            for u in sorted(self.users, key=lambda x: (x.get("company",""), x["name"])):
+                self.user_lb.insert("end", f"{u['name']}")
+            # block adding while 'Any' is selected
+            if hasattr(self, "add_user_btn"):
+                self.add_user_btn.configure(state="disabled")
+        else:
+            for u in self.users:
+                if u["company"] == comp:
+                    self.user_lb.insert("end", f"{u['name']}")
+            if hasattr(self, "add_user_btn"):
+                self.add_user_btn.configure(state="normal")
+
         self.current_user = None
+
     def _scrolled_listbox(self, parent, *, height=12):
         """Compact listbox + vertical scrollbar that doesn't grow vertically."""
         wrap = tk.Frame(parent, bg="#ffffff")
@@ -1734,6 +1940,8 @@ class AdminApp(tk.Tk):
 
 
     def build_hierarchical_db_tab(self, parent):
+        self.users = load_users()
+        self.task_config = load_task_config()
         # Title + breadcrumb
         ttk.Label(parent, text="Database Manager", style="Heading.TLabel") \
             .pack(anchor="w", padx=12, pady=(12, 6))
@@ -1780,26 +1988,40 @@ class AdminApp(tk.Tk):
 
         top = ttk.Frame(body_u, style="CardToolbar.TFrame")
         top.pack(fill="x", pady=(0, 6))
-        ttk.Label(top, text="Company", style="FilterLabel.TLabel").pack(side="left", padx=(0, 6))
-        self.user_company_var = tk.StringVar()
-        self.user_company_combo = ttk.Combobox(top, textvariable=self.user_company_var,
-                                            state="readonly", width=28)
+        ttk.Label(top, text="Company (or Any)", style="FilterLabel.TLabel") \
+            .pack(side="left", padx=(0, 6))
+
+        self.user_company_var = tk.StringVar(value="Any")
+        self.user_company_combo = ttk.Combobox(
+            top, textvariable=self.user_company_var, state="readonly", width=28
+        )
         self.user_company_combo.pack(side="left", fill="x", expand=True)
+
+        # Populate: 'Any' (filter only) + all real companies
+        self.user_company_combo["values"] = ["Any"] + self._all_companies()
         self.user_company_combo.bind("<<ComboboxSelected>>", self.on_user_company_selected)
 
+        # Users list + buttons
         self.user_lb = self._scrolled_listbox(body_u, height=12)
-        btnf = ttk.Frame(body_u, style="CardToolbar.TFrame"); btnf.pack(fill="x")
-        ttk.Button(btnf, text="Add User",    style="Ghost.TButton", command=self.add_user).pack(side="left", padx=4)
-        ttk.Button(btnf, text="Edit User",   style="Ghost.TButton", command=self.edit_user).pack(side="left", padx=4)
-        ttk.Button(btnf, text="Delete User", style="Ghost.TButton", command=self.delete_user).pack(side="left", padx=4)
+
+        btnf = ttk.Frame(body_u, style="CardToolbar.TFrame")
+        btnf.pack(fill="x")
+        self.add_user_btn = ttk.Button(btnf, text="Add User",
+                                    style="Ghost.TButton", command=self.add_user)
+        self.add_user_btn.pack(side="left", padx=4)
+        ttk.Button(btnf, text="Edit User",   style="Ghost.TButton",
+                command=self.edit_user).pack(side="left", padx=4)
+        ttk.Button(btnf, text="Delete User", style="Ghost.TButton",
+                command=self.delete_user).pack(side="left", padx=4)
 
         # Initial load
         self.refresh_locations()
+        self.refresh_companies()  # <-- populate Companies list immediately (global)
 
-        # Populate the Users company filter with *all* companies initially
-        all_comps = sorted({c for locmap in self.task_config.values() for c in locmap.keys()})
-        self.user_company_combo["values"] = all_comps
-        self.user_company_var.set(all_comps[0] if all_comps else "")
+        # After self.refresh_locations(); self.refresh_companies()
+        all_comps = self._all_companies()
+        self.user_company_combo["values"] = ["Any"] + all_comps
+        self.user_company_var.set("Any")
         self.on_user_company_selected()
 
 
@@ -1826,12 +2048,14 @@ class AdminApp(tk.Tk):
         def on_ok():
             new_loc = entry.get().strip()
             if not new_loc:
-                messagebox.showerror("Error", "Name cannot be empty.")
-                return
+                return messagebox.showerror("Error", "Name cannot be empty.")
             if new_loc in self.task_config:
-                messagebox.showerror("Error", "That location already exists.")
-                return
-            self.task_config[new_loc] = {}
+                return messagebox.showerror("Error", "That location already exists.")
+
+            # Create + seed with all companies (safe even if none yet)
+            self.task_config.setdefault(new_loc, {})
+            self._sync_all_companies_to_location(new_loc)
+
             save_task_config(self.task_config)
             dlg.destroy()
             self.refresh_locations()
@@ -1844,12 +2068,12 @@ class AdminApp(tk.Tk):
         tk.Button(dlg, text="OK", command=on_ok).pack(pady=10)
 
     def edit_location(self):
-        """Rename the selected location."""
         sel = self.loc_lb.curselection()
         if not sel:
             messagebox.showerror("Error", "Select a location first.")
             return
         old = self.loc_lb.get(sel)
+
         def on_ok():
             new = entry.get().strip()
             if not new or new == old:
@@ -1857,9 +2081,12 @@ class AdminApp(tk.Tk):
             if new in self.task_config:
                 messagebox.showerror("Error", "That name already exists.")
                 return
-            # rename key in dict
+
+            # ⬇️ rename + seed companies at the new location + save
             self.task_config[new] = self.task_config.pop(old)
+            self._sync_all_companies_to_location(new)
             save_task_config(self.task_config)
+
             dlg.destroy()
             self.refresh_locations()
 
@@ -1868,6 +2095,7 @@ class AdminApp(tk.Tk):
         tk.Label(dlg, text="New Name:").pack(padx=10, pady=5)
         entry = tk.Entry(dlg); entry.insert(0, old); entry.pack(padx=10, pady=5)
         tk.Button(dlg, text="OK", command=on_ok).pack(pady=10)
+
 
     def delete_location(self):
         """Delete the selected location (and all its companies/tasks)."""
@@ -1882,31 +2110,22 @@ class AdminApp(tk.Tk):
         save_task_config(self.task_config)
         self.refresh_locations()
 
-    def on_loc_selected(self, evt=None):
-        sel = self.loc_lb.curselection()
-        if not sel:
-            self.current_loc = None
-        else:
-            self.current_loc = self.loc_lb.get(sel)
-        # repopulate companies
-        self.refresh_companies()
-
     # ────────────────────────────────────────────────────────────────────
     # Company‐level CRUD (must come after the location methods)
     # ────────────────────────────────────────────────────────────────────
 
     def refresh_companies(self):
         self.task_config = load_task_config()
-        self.comp_lb.delete(0, "end")
-        self.task_lb.delete(0, "end")
-        sel = getattr(self, "current_loc", None)
-        if not sel:
-            return
+        if hasattr(self, "comp_lb"): self.comp_lb.delete(0, "end")
+        if hasattr(self, "task_lb"): self.task_lb.delete(0, "end")
+
         q = (self.comp_query.get().lower() if hasattr(self, "comp_query") else "")
-        for comp in sorted(self.task_config.get(sel, {})):
+        for comp in self._all_companies():
             if q and q not in comp.lower():
                 continue
             self.comp_lb.insert("end", comp)
+
+
 
     def add_company(self):
         """Popup to create a new company under the selected location."""
@@ -1919,16 +2138,21 @@ class AdminApp(tk.Tk):
         def on_ok():
             new = entry.get().strip()
             if not new:
-                messagebox.showerror("Error", "Name cannot be empty.")
-                return
+                return messagebox.showerror("Error", "Name cannot be empty.")
             if new in self.task_config[loc]:
-                messagebox.showerror("Error", "That company already exists here.")
-                return
-            # create company → empty task list
-            self.task_config[loc][new] = []
+                return messagebox.showerror("Error", "That company already exists here.")
+
+            # Add at the current location
+            self.task_config.setdefault(loc, {}).setdefault(new, [])
+
+            # And mirror to every other location
+            self._sync_company_to_all_locations(new)
+
             save_task_config(self.task_config)
             dlg.destroy()
             self.refresh_companies()
+
+
 
         dlg = tk.Toplevel(self)
         dlg.title(f"Add Company in '{loc}'")
@@ -1937,61 +2161,108 @@ class AdminApp(tk.Tk):
         tk.Button(dlg, text="OK", command=on_ok).pack(pady=10)
 
     def edit_company(self):
-        """Rename the selected company within the current location."""
-        loc_sel = self.loc_lb.curselection()
         comp_sel = self.comp_lb.curselection()
-        if not loc_sel or not comp_sel:
+        if not comp_sel:
             messagebox.showerror("Error", "Select a company first.")
             return
-        loc  = self.loc_lb.get(loc_sel)
-        old  = self.comp_lb.get(comp_sel)
-
-        def on_ok():
-            new = entry.get().strip()
-            if not new or new == old:
-                dlg.destroy()
-                return
-            if new in self.task_config[loc]:
-                messagebox.showerror("Error", "That name already exists here.")
-                return
-            # rename: move the list of tasks
-            self.task_config[loc][new] = self.task_config[loc].pop(old)
-            save_task_config(self.task_config)
-            dlg.destroy()
-            self.refresh_companies()
+        old = self.comp_lb.get(comp_sel)
 
         dlg = tk.Toplevel(self)
         dlg.title(f"Rename Company '{old}'")
         tk.Label(dlg, text="New Name:").pack(padx=10, pady=5)
         entry = tk.Entry(dlg); entry.insert(0, old); entry.pack(padx=10, pady=5)
+
+        def on_ok():
+            new = entry.get().strip()
+            if not new or new == old:
+                dlg.destroy(); return
+
+            # Rename across ALL locations in task_config, merging if 'new' exists
+            for loc, cmap in self.task_config.items():
+                if old in cmap:
+                    if new in cmap:
+                        existing = {(t["name"] if isinstance(t, dict) else t) for t in cmap[new]}
+                        for t in cmap[old]:
+                            nm = (t["name"] if isinstance(t, dict) else t)
+                            if nm not in existing:
+                                cmap[new].append(t)
+                        del cmap[old]
+                    else:
+                        cmap[new] = cmap.pop(old)
+
+            save_task_config(self.task_config)
+
+            # Update users.json
+            changed = False
+            for u in self.users:
+                if u.get("company") == old:
+                    u["company"] = new
+                    changed = True
+            if changed:
+                save_users(self.users)
+
+            # Rename folders on disk (logs + requests)
+            self._rename_company_on_disk(old, new)
+
+            dlg.destroy()
+            self.refresh_companies()
+            self.user_company_combo["values"] = ["Any"] + self._all_companies()
+            if self.user_company_var.get() == old:
+                self.user_company_var.set(new)
+            self.on_user_company_selected()
+
+            self.current_comp = new
+            locs = self.locations_for_company(new)
+            if locs:
+                self.current_loc = locs[0]
+                self._select_location_in_listbox(self.current_loc)
+            self.refresh_tasks()
+
         tk.Button(dlg, text="OK", command=on_ok).pack(pady=10)
 
     def delete_company(self):
-        """Remove the selected company (and its tasks) from the current location."""
-        loc_sel  = self.loc_lb.curselection()
         comp_sel = self.comp_lb.curselection()
-        if not loc_sel or not comp_sel:
-            messagebox.showerror("Error", "Select a company first.")
-            return
-        loc  = self.loc_lb.get(loc_sel)
+        if not comp_sel:
+            return messagebox.showerror("Error", "Select a company to delete.")
         comp = self.comp_lb.get(comp_sel)
 
-        if not messagebox.askyesno("Confirm", f"Delete company '{comp}' and all its tasks?"):
+        if not messagebox.askyesno("Confirm",
+                                f"Delete company '{comp}' from ALL locations and remove its data on disk?"):
             return
 
-        self.task_config[loc].pop(comp, None)
-        save_task_config(self.task_config)
-        self.refresh_companies()
+        # Remove from task_config across all locations
+        changed_cfg = False
+        for _, cmap in self.task_config.items():
+            if comp in cmap:
+                del cmap[comp]
+                changed_cfg = True
+        if changed_cfg:
+            save_task_config(self.task_config)
 
-    def on_comp_selected(self, evt=None):
-        sel = self.comp_lb.curselection()
-        if not sel:
+        # Optionally unassign users
+        had_users = any(u.get("company") == comp for u in self.users)
+        if had_users and messagebox.askyesno("Also unassign users?",
+                                            f"Unassign all users in '{comp}' so the company disappears everywhere?"):
+            for u in self.users:
+                if u.get("company") == comp:
+                    u["company"] = "Unassigned"
+            save_users(self.users)
+
+        # Remove folders on disk (logs + requests)
+        self._delete_company_on_disk(comp, archive=False)  # set True to archive instead
+
+        # UI refresh
+        self.refresh_companies()
+        self.user_company_combo["values"] = ["Any"] + self._all_companies()
+        if self.user_company_var.get() == comp:
+            self.user_company_var.set("Any")
+        self.on_user_company_selected()
+
+        if getattr(self, "current_comp", None) == comp:
             self.current_comp = None
-        else:
-            self.current_comp = self.comp_lb.get(sel)
-        # now we know both loc & comp
-        # and we can refresh tasks without touching the loc Listbox again
         self.refresh_tasks()
+
+
 
     # ────────────────────────────────────────────────────────────────────
     # Task‐level CRUD (replace your existing methods with these)
@@ -2002,37 +2273,44 @@ class AdminApp(tk.Tk):
         loc  = getattr(self, "current_loc", None)
         comp = getattr(self, "current_comp", None)
         if not (loc and comp):
-            return
+            return  # show nothing until both are selected
+
+        lst = self.task_config.get(loc, {}).get(comp, [])
         q = (self.task_query.get().lower() if hasattr(self, "task_query") else "")
-        for item in self.task_config[loc][comp]:
-            name = item["name"]
+        for item in lst:
+            name = item["name"] if isinstance(item, dict) else str(item)
             if q and q not in name.lower():
                 continue
-            display = f"{name}{' ✓' if item.get('completed', False) else ''}"
-            self.task_lb.insert("end", display)
+            mark = " ✓" if isinstance(item, dict) and item.get("completed", False) else ""
+            self.task_lb.insert("end", f"{name}{mark}")
+
+
 
     def add_task(self):
         """Popup to create a new task under the selected company."""
         loc  = getattr(self, "current_loc", None)
         comp = getattr(self, "current_comp", None)
-        if not loc or not comp:
+        if not (loc and comp):
             messagebox.showerror("Error", "Select a company first.")
             return
 
         def on_ok():
             new = entry.get().strip()
             if not new:
-                messagebox.showerror("Error", "Task cannot be empty.")
-                return
-            # check existing names
-            existing = { itm["name"] for itm in self.task_config[loc][comp] }
+                return messagebox.showerror("Error", "Task cannot be empty.")
+
+            # Ensure the location/company exist and fetch the list
+            lst = self.task_config.setdefault(loc, {}).setdefault(comp, [])
+
+            # Check duplicates (supports both dict and legacy string items)
+            existing = { (it["name"] if isinstance(it, dict) else str(it)) for it in lst }
             if new in existing:
-                messagebox.showerror("Error", "That task already exists.")
-                return
-            # append new task object
-            self.task_config[loc][comp].append({
+                return messagebox.showerror("Error", "That task already exists.")
+
+            # Append new task object
+            lst.append({
                 "id": str(uuid.uuid4()),
-                "name":      new,
+                "name": new,
                 "completed": False
             })
             save_task_config(self.task_config)
@@ -2042,9 +2320,9 @@ class AdminApp(tk.Tk):
         dlg = tk.Toplevel(self)
         dlg.title(f"Add Task in '{comp}' @ '{loc}'")
         tk.Label(dlg, text="Task Name:").pack(padx=10, pady=5)
-        entry = tk.Entry(dlg)
-        entry.pack(padx=10, pady=5)
+        entry = tk.Entry(dlg); entry.pack(padx=10, pady=5)
         tk.Button(dlg, text="OK", command=on_ok).pack(pady=10)
+
 
     def edit_task(self):
         """Rename and toggle completion on the selected task."""
@@ -2129,21 +2407,14 @@ class AdminApp(tk.Tk):
         save_task_config(self.task_config)
         self.refresh_tasks()
 
-    def on_user_company_selected(self, event=None):
-        """Reload the users list when a company is chosen."""
-        comp = self.user_company_var.get()
-        self.user_lb.delete(0, "end")
-        for u in self.users:
-            if u["company"] == comp:
-                self.user_lb.insert("end", f"{u['name']}")
-        # clear any selected user so edit/delete won't be stale
-        self.current_user = None
-
     def add_user(self):
         """Popup to add a new user under the selected company."""
         comp = self.user_company_var.get()
-        if not comp:
-            messagebox.showerror("Error", "Please choose a company first.")
+        if not comp or comp == "Any":
+            messagebox.showerror(
+                "Pick a company",
+                "Select a specific company in the 'Company (or Any)' dropdown before adding a user."
+            )
             return
 
         dlg = tk.Toplevel(self)
