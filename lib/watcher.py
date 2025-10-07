@@ -1,6 +1,7 @@
 import os
 import time
 import json
+from lib.new_watcher import detect_changes
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -69,61 +70,8 @@ class JSONChangeHandler(FileSystemEventHandler):
             if common == {}:
                 for key in new_data.keys():
                     common[key] = []
-            changes = self.detect_changes(common, new_data)
-            success = self.callback(changes)
+        print(new_data)
+        changes = detect_changes(common, new_data)
+        success = self.callback(changes)
+        if success:
             self.previous_data = new_data
-
-    def detect_changes(self, old, new, path=[]):
-        if old == new:
-            return []
-
-        diffs = []
-
-        if isinstance(new, list) and isinstance(old, list):
-            for old_item in old:
-                id = old_item["id"]
-                same = [n for n in new if n["id"] == id]
-                if len(same) > 0:
-                    same = same[0]
-                    diffs.extend(self.detect_changes(old_item, same, path.copy() + [id]))
-                else:
-                    diffs.append({
-                        "type": "removed",
-                        "value": old_item,
-                        "path": path
-                    })
-            for new_item in new:
-                id = new_item["id"]
-                same = [o for o in old if o["id"] == id]
-                if len(same) == 0:
-                    diffs.append({
-                        "type": "added",
-                        "value": new_item,
-                        "path": path
-                    })
-        elif isinstance(old, dict) and isinstance(new, dict):
-            for old_key, old_val in old.items():
-                if old_key in new:
-                    diffs.extend(self.detect_changes(old_val, new[old_key], path.copy() + [old_key]))
-                else:
-                    diffs.append({
-                        "type": "removed",
-                        "value": old_val,
-                        "path": path.copy() + [old_key]
-                    })
-            for new_key, new_val in new.items():
-                if new_key not in old:
-                    diffs.append({
-                        "type": "added",
-                        "value": new_val,
-                        "path": path.copy() + [new_key]
-                    })
-
-        else:
-            diffs.append({
-                "type": "changed",
-                "value": new,
-                "path": path
-            })
-
-        return diffs

@@ -8,10 +8,34 @@
     "lunch_minutes": 0
   },
   {
-    "id": "f578556b-8359-4025-83fe-9596be1df91d",
-    "name": "olisaer",
-    "company": "company2",
-    "pin": "4662",
+    "id": "f0cde359-5546-4566-ae26-ee6eb3f57470",
+    "name": "test",
+    "company": "A1 málun",
+    "pin": "698",
+    "commute_minutes": 250,
+    "lunch_minutes": 10
+  },
+  {
+    "id": "79b52830-a087-4afb-a873-19dc1f02aaf1",
+    "name": "ragna4",
+    "company": "A1 málun",
+    "pin": "0203",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "2cca9b20-090d-4bd5-936a-c858be0e5bb8",
+    "name": "ragnar2",
+    "company": "A1 málun",
+    "pin": "3344",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "d305dd88-6658-4ead-b584-89436980acf7",
+    "name": "mycompanyuser",
+    "company": "gamer",
+    "pin": "2243",
     "commute_minutes": 25,
     "lunch_minutes": 0
   }

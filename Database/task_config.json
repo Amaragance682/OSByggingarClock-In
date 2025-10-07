@@ -1,38 +1,32 @@
 {
   "Eyravegur 28-30, Selfoss": {
-    "company2": [
+    "test2": [],
+    "A1 málun1": [
       {
-        "id": "365183ac-a4f7-4b35-bef5-b045bc3d2f21",
-        "name": "mitt task123",
+        "id": "f35f8804-c449-4e35-b9ac-005b3f9ab12f",
+        "name": "test",
         "completed": false
-      }
-    ],
-    "company1": [
+      },
       {
-        "id": "4521586c-de33-46b6-820c-5b1d0efa3091",
-        "name": "olistask",
+        "id": "512db8f3-f487-4c88-8983-114f0188c775",
+        "name": "test2",
         "completed": false
-      }
-    ]
-  },
-  "reykjavik": {
-    "company2": [
+      },
       {
-        "id": "40227106-09e8-4984-b841-619baccc38d4",
-        "name": "reykjaviktask",
-        "completed": true
-      }
-    ],
-    "company1": [
-      {
-        "id": "86a3b4f2-95f4-4a81-acba-d84da025e31c",
-        "name": "verkefni1",
+        "id": "97db991a-2166-4b2a-893a-60a9ae4858a4",
+        "name": "task3",
         "completed": false
       }
     ]
   },
-  "location1": {
-    "company2": [],
-    "company1": []
-  }
+  "whatthefuckingshit3": {
+    "gamer": [
+      {
+        "id": "1cd69d50-d8d2-4c06-9929-6e9601fe3579",
+        "name": "gamer",
+        "completed": false
+      }
+    ]
+  },
+  "test": {}
 }
