@@ -53,7 +53,6 @@ class JSONChangeHandler(FileSystemEventHandler):
             return
         if self.path not in event.src_path:
             return
-        print(self.path)
 
         now = time.time()
         if event.src_path in self._last_modified and now - self._last_modified[event.src_path] < 0.1:
@@ -70,8 +69,8 @@ class JSONChangeHandler(FileSystemEventHandler):
             if common == {}:
                 for key in new_data.keys():
                     common[key] = []
-        print(new_data)
-        changes = detect_changes(common, new_data)
-        success = self.callback(changes)
-        if success:
+            changes = detect_changes(common.get(event.src_path), new_data.get(event.src_path))
+            for a in changes:
+                a['path'] = event.src_path
+            self.callback(changes)
             self.previous_data = new_data

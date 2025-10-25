@@ -1,0 +1,4 @@
+[console_scripts]
+admin-app = admin_app:main
+employee-app = employee_app:main
+report-generator = report_generator:main

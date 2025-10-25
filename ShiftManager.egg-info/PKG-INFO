@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: ShiftManager
+Version: 1.0.0
+Summary: A multi-role PC application for managing employee shifts and reports.
+Author: Óli
+Requires-Python: >=3.10
+Requires-Dist: Pillow>=10.0.0
+Requires-Dist: openpyxl>=3.1.2
+Requires-Dist: tktimepicker@ git+https://github.com/noklam/tktimepicker.git
+Requires-Dist: appdirs>=1.4.4
+Requires-Dist: tk
+Requires-Dist: pyinstaller>=6.0.0
+Requires-Dist: pystray>=0.19.4
+Requires-Dist: pywin32>=306; platform_system == "Windows"
+Requires-Dist: pyqt5>=5.15.9
+Requires-Dist: requests>=2.31.0
+Requires-Dist: python-dotenv>=1.0.0
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

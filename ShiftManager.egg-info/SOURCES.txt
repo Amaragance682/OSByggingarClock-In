@@ -1,0 +1,16 @@
+setup.py
+ShiftManager.egg-info/PKG-INFO
+ShiftManager.egg-info/SOURCES.txt
+ShiftManager.egg-info/dependency_links.txt
+ShiftManager.egg-info/entry_points.txt
+ShiftManager.egg-info/requires.txt
+ShiftManager.egg-info/top_level.txt
+apps/__init__.py
+apps/admin_view.py
+apps/app.py
+apps/export_company_reports.py
+lib/__init__.py
+lib/dateandtime.py
+lib/new_watcher.py
+lib/utils.py
+lib/watcher.py

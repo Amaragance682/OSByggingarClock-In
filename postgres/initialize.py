@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS locations (
 
 CREATE TABLE IF NOT EXISTS companies (
     name TEXT NOT NULL PRIMARY KEY,
-    location TEXT NOT NULL REFERENCES locations(address),
     created_at TIMESTAMP DEFAULT now()
 );
 
@@ -84,7 +83,6 @@ BEGIN
       json_build_object(
         'action', TG_OP,
         'table', TG_TABLE_NAME,
-        'id', NEW.id,
         'new', row_to_json(NEW),
         'source', v_source
       )::text
@@ -97,7 +95,6 @@ BEGIN
       json_build_object(
         'action', TG_OP,
         'table', TG_TABLE_NAME,
-        'id', NEW.id,
         'old', row_to_json(OLD),
         'new', row_to_json(NEW),
         'source', v_source
@@ -111,7 +108,6 @@ BEGIN
       json_build_object(
         'action', TG_OP,
         'table', TG_TABLE_NAME,
-        'id', OLD.id,
         'old', row_to_json(OLD),
         'source', v_source
       )::text

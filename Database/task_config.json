@@ -17,7 +17,8 @@
         "name": "task3",
         "completed": false
       }
-    ]
+    ],
+    "TestComapyn": []
   },
   "whatthefuckingshit3": {
     "gamer": [
@@ -26,7 +27,34 @@
         "name": "gamer",
         "completed": false
       }
-    ]
+    ],
+    "TestComapyn": []
   },
-  "test": {}
+  "test": {
+    "TestComapyn": []
+  },
+  "Kyoto": {
+    "gamer": [],
+    "A1 málun1": [],
+    "company1": [],
+    "A1 málun": [
+      {
+        "id": "ffa1024a-53f6-4638-a4a2-44ee15427bca",
+        "name": "kyototask1",
+        "completed": false
+      },
+      {
+        "id": "faa1024a-53f6-4638-a4a2-44ee15427bca",
+        "name": "kyototask3",
+        "completed": false
+      },
+      {
+        "id": "aaa1024a-53f6-4638-a4a2-44ee15427bca",
+        "name": "kyototask4",
+        "completed": false
+      }
+    ],
+    "test2": [],
+    "TestComapyn": []
+  }
 }

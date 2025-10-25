@@ -10,6 +10,10 @@ conn = psycopg2.connect(os.getenv("DATABASE_URL"), sslmode='require')
 cur = conn.cursor()
 
 collective_data = _load_json("Database")
+
+empty_data = {k : {} if isinstance(v, dict) else [] if isinstance(v, list) else v for k,v in collective_data.items()}
+
+
 if collective_data is not None:
     users = collective_data["Database/users.json"]
     task_config = collective_data["Database/task_config.json"]
@@ -22,21 +26,17 @@ if collective_data is not None:
     #print(requests)
 
     # TASK_CONFIG
-    unique_companies = {}
+    unique_companies = []
     for location, companies in task_config.items():
-        cur.execute("INSERT INTO locations (address) VALUES (%s) RETURNING id", [location])
-        location_id = cur.fetchone()[0]
+        cur.execute("INSERT INTO locations (address) VALUES (%s)", [location])
         for company, tasks in companies.items():
             if company not in unique_companies:
-                cur.execute("INSERT INTO companies (name) VALUES (%s) RETURNING id", [company])
-                company_id = cur.fetchone()[0]
-                unique_companies[company] = company_id
-            else:
-                company_id = unique_companies[company]
+                cur.execute("INSERT INTO companies (name) VALUES (%s)", [company])
+                unique_companies.append(company)
 
             for task in tasks:
-                cur.execute("INSERT INTO tasks (name, company_id, location_id, completed) VALUES (%s, %s, %s, %s)",
-                            [task["name"], company_id, location_id, task["completed"]])
+                cur.execute("INSERT INTO tasks (name, company, location, completed) VALUES (%s, %s, %s, %s)",
+                            [task["name"], company, location, task["completed"]])
 
     # USERS
     for user in users:
@@ -44,8 +44,8 @@ if collective_data is not None:
                     [user["id"], user["name"], user["pin"]])
 
         settings = {k: user[k] for k in ("commute_minutes", "lunch_minutes") if k in user}
-        cur.execute("INSERT INTO company_user_relation (company_id, user_id, role, custom_settings) VALUES (%s, %s, %s, %s)",
-                    [unique_companies[user["company"]], user["id"], 'employee', psycopg2.extras.Json(settings)])
+        cur.execute("INSERT INTO contracts (company, user_id, role, custom_settings) VALUES (%s, %s, %s, %s)",
+                    [user["company"], user["id"], 'employee', psycopg2.extras.Json(settings)])
 
     # SHIFTS / TIME_ENTRIES
     for path, user_shifts in shifts.items():
@@ -53,44 +53,39 @@ if collective_data is not None:
             no_ext = os.path.splitext(path)[0]
             company, user_id = no_ext.split("/", 1)
 
-            
-            cur.execute("SELECT id FROM locations WHERE address=%s", [shift["location"]])
-            location_id = cur.fetchone()[0]
-            cur.execute("SELECT id FROM companies WHERE name=%s", [company])
-            company_id = cur.fetchone()[0]
-            cur.execute("SELECT id FROM tasks WHERE name=%s AND company_id=%s AND location_id=%s",
-                        [shift["task"], company_id, location_id])
+            cur.execute("SELECT id FROM tasks WHERE name=%s AND company=%s AND location=%s",
+                        [shift["task"], company, shift['location']])
             task_id = cur.fetchone()[0]
-            cur.execute("SELECT id FROM company_user_relation WHERE user_id=%s AND company_id=%s",
-                        [user_id, company_id])
-            company_user_relation_id = cur.fetchone()[0]
+            cur.execute("SELECT id FROM contracts WHERE user_id=%s AND company=%s",
+                        [user_id, company])
+            contract_id = cur.fetchone()[0]
 
             extra = {k: shift[k] for k in shift if k not in ("id", "task", "location", "clock_in", "clock_out")}
 
             if "clock_out" in shift:
                 cur.execute("""
-                            INSERT INTO time_entries 
-                            (id, company_user_relation_id, location_id, task_id, clock_in, clock_out, extra)
+                            INSERT INTO shifts 
+                            (id, contract_id, location, task_id, clock_in, clock_out, extra)
                             VALUES 
                             (%s, %s, %s, %s, %s, %s, %s)
                             """,
                             [shift["id"],
-                             company_user_relation_id,
-                             location_id,
+                             contract_id,
+                             shift["location"],
                              task_id,
                              shift["clock_in"],
                              shift["clock_out"],
                              psycopg2.extras.Json(extra)])
             else:
                 cur.execute("""
-                            INSERT INTO time_entries 
-                            (id, company_user_relation_id, location_id, task_id, clock_in, extra)
+                            INSERT INTO shifts 
+                            (id, contract_id, location, task_id, clock_in, extra)
                             VALUES 
                             (%s, %s, %s, %s, %s, %s)
                             """,
                             [shift["id"],
-                             company_user_relation_id,
-                             location_id,
+                             contract_id,
+                             shift["location"],
                              task_id,
                              shift["clock_in"],
                              psycopg2.extras.Json(extra)])
@@ -102,26 +97,23 @@ if collective_data is not None:
             company, user_id = no_ext.split("/", 1)
             user_id = user_id.split("_")[0]
 
-            cur.execute("SELECT id FROM locations WHERE address=%s", [request["location"]])
-            location_id = cur.fetchone()[0]
-            cur.execute("SELECT id FROM companies WHERE name=%s", [company])
-            company_id = cur.fetchone()[0]
-            cur.execute("SELECT id FROM tasks WHERE name=%s AND company_id=%s AND location_id=%s",
-                        [request["task"], company_id, location_id])
+            location = request["location"]
+            cur.execute("SELECT id FROM tasks WHERE name=%s AND company=%s AND location=%s",
+                        [request["task"], company, location])
             task_id = cur.fetchone()[0]
 
             extra = {k: request[k] for k in ("commute_minutes", "lunch_minutes") if k in request}
 
             cur.execute("""
                         INSERT INTO requests
-                        (id, user_id, task_id, company_id, location_id, requested_start, requested_end, extra, reason, status)
+                        (id, user_id, task_id, company, location, requested_start, requested_end, extra, reason, status)
                         VALUES
                         (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                         [request["id"],
                          user_id,
                          task_id,
-                         company_id,
-                         location_id,
+                         company,
+                         location,
                          request["requested_start"],
                          request["requested_end"],
                          psycopg2.extras.Json(extra),
