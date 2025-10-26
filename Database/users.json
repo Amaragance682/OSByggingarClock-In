@@ -46,5 +46,13 @@
     "pin": "2244",
     "commute_minutes": 25,
     "lunch_minutes": 0
+  },
+  {
+    "id": "a435d888-6658-4ead-b584-89436980acf0",
+    "name": "gamering",
+    "company": "gamer",
+    "pin": "3244",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
   }
 ]

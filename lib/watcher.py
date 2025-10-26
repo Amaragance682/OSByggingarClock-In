@@ -4,24 +4,28 @@ import json
 from lib.new_watcher import detect_changes
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from pathlib import Path
 
 def _load_json(path, retries=3, delay=0.05):
+    path = Path(path) 
     for attempt in range(retries):
         try:
             json_files = []
-            if os.path.isfile(path):
-                if path.endswith(".json"):
-                    json_files.append(path)
+
+            if path.is_file() and path.suffix == ".json":
+                json_files.append(path)
             else:
-                for dirpath, _, filenames in os.walk(path):
-                    for file in filenames:
-                        if file.endswith(".json"):
-                            json_files.append(os.path.join(dirpath, file))
+                for p in path.rglob("*.json"):
+                    json_files.append(p)
+
             collective_data = {}
             for j in json_files:
                 with open(j, "r", encoding="utf-8") as f:
-                    collective_data[j] = json.load(f)
+                    normalized_key = j.as_posix()
+                    collective_data[normalized_key] = json.load(f)
+
             return collective_data
+
         except json.JSONDecodeError:
             if attempt < retries - 1:
                 time.sleep(delay)
