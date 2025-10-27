@@ -1,60 +1,72 @@
 {
-  "Eyravegur 28-30, Selfoss": {
-    "test2": [],
-    "A1 málun1": [
-      {
-        "id": "f35f8804-c449-4e35-b9ac-005b3f9ab12f",
-        "name": "test",
-        "completed": false
-      },
-      {
-        "id": "512db8f3-f487-4c88-8983-114f0188c775",
-        "name": "test2",
-        "completed": false
-      },
-      {
-        "id": "97db991a-2166-4b2a-893a-60a9ae4858a4",
-        "name": "task3",
-        "completed": false
-      }
-    ],
-    "TestComapyn": []
-  },
-  "whatthefuckingshit3": {
-    "gamer": [
-      {
-        "id": "1cd69d50-d8d2-4c06-9929-6e9601fe3579",
-        "name": "gamer",
-        "completed": false
-      }
-    ],
-    "TestComapyn": []
-  },
-  "test": {
-    "TestComapyn": []
-  },
-  "Kyoto": {
-    "gamer": [],
-    "A1 málun1": [],
-    "company1": [],
-    "A1 málun": [
-      {
-        "id": "ffa1024a-53f6-4638-a4a2-44ee15427bca",
-        "name": "kyototask1",
-        "completed": false
-      },
-      {
-        "id": "faa1024a-53f6-4638-a4a2-44ee15427bca",
-        "name": "kyototask3",
-        "completed": false
-      },
-      {
-        "id": "aaa1024a-53f6-4638-a4a2-44ee15427bca",
-        "name": "kyototask4",
-        "completed": false
-      }
-    ],
-    "test2": [],
-    "TestComapyn": []
-  }
+    "Eyravegur 28-30, Selfoss": {
+        "test2": [],
+        "A1 málun1": [
+            {
+                "id": "f35f8804-c449-4e35-b9ac-005b3f9ab12f",
+                "name": "test",
+                "completed": false
+            },
+            {
+                "id": "512db8f3-f487-4c88-8983-114f0188c775",
+                "name": "test2",
+                "completed": false
+            },
+            {
+                "id": "97db991a-2166-4b2a-893a-60a9ae4858a4",
+                "name": "task3",
+                "completed": false
+            }
+        ],
+        "TestComapyn": [],
+        "2025-10-27:21:51": []
+    },
+    "whatthefuckingshit3": {
+        "gamer": [
+            {
+                "id": "1cd69d50-d8d2-4c06-9929-6e9601fe3579",
+                "name": "gamer",
+                "completed": false
+            }
+        ],
+        "TestComapyn": [],
+        "2025-10-27:21:51": []
+    },
+    "test": {
+        "TestComapyn": [],
+        "2025-10-27:21:51": []
+    },
+    "Kyoto": {
+        "gamer": [],
+        "A1 málun1": [],
+        "company1": [],
+        "A1 málun": [
+            {
+                "id": "ffa1024a-53f6-4638-a4a2-44ee15427bca",
+                "name": "kyototask1",
+                "completed": false
+            },
+            {
+                "id": "faa1024a-53f6-4638-a4a2-44ee15427bca",
+                "name": "kyototask3",
+                "completed": false
+            },
+            {
+                "id": "aaa1024a-53f6-4638-a4a2-44ee15427bca",
+                "name": "kyototask4",
+                "completed": false
+            },
+            {
+                "id": "6afaae25-52f5-42f0-a2eb-5ad642503f28",
+                "name": "mondayTask",
+                "completed": false
+            }
+        ],
+        "test2": [],
+        "TestComapyn": [],
+        "2025-10-27:21:51": []
+    },
+    "2025-10-27": {
+        "2025-10-27:21:51": []
+    }
 }

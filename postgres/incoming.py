@@ -7,6 +7,7 @@ import select
 import time
 from dotenv import load_dotenv
 from apps.app import LOCATION
+from pathlib import Path
 
 class Incoming():
     def __init__(self, outgoing):
@@ -36,24 +37,25 @@ class Incoming():
                 if payload["source"] == LOCATION:
                     continue
                 print("Got NOTIFY:", notify.payload)
-                if payload["table"] == "users":
+                table = payload["table"]
+                if table == "users":
                     self.handle_users(payload)
-                if payload["table"] == "companies":
+                if table == "companies":
                     self.handle_companies(payload)
-                if payload["table"] == "locations":
+                if table == "locations":
                     self.handle_locations(payload)
-                if payload["table"] == "company_user_relation":
-                    self.handle_company_user_relation(payload)
-                if payload["table"] == "requests":
+                if table == "contracts":
+                    self.handle_contracts(payload)
+                if table == "requests":
                     self.handle_requests(payload)
-                if payload["table"] == "tasks":
+                if table == "tasks":
                     self.handle_tasks(payload)
-                if payload["table"] == "time_entries":
+                if table == "shifts":
                     self.handle_shifts(payload)
 
     def write_to_file(self, procedure, path):
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(Path(path), "r", encoding="utf-8") as f:
                 data = json.load(f)
         except FileNotFoundError:
             data = []
@@ -98,12 +100,12 @@ class Incoming():
 
         self.write_to_file(procedure, "Database/users.json")
 
-    def handle_company_user_relation(self, payload):
+    def handle_contracts(self, payload):
         action = payload["action"]
         if action == "INSERT":
             new = payload["new"]
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [new["company_id"]])
-            company = self.cur.fetchone()[0]
+
+            company = new["company"]
 
             def procedure(data):
                 for i, d in enumerate(data):
@@ -178,15 +180,11 @@ class Incoming():
         action = payload["action"]
         if action == "INSERT":
             new = payload["new"]
-            company_id = new["company_id"]
+            company = new["company"]
+            location = new["location"]
             task_id = new["task_id"]
-            location_id = new["location_id"]
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
-            company = self.cur.fetchone()[0]
             self.cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
             task = self.cur.fetchone()[0]
-            self.cur.execute("SELECT address FROM locations WHERE id=%s", [location_id])
-            location = self.cur.fetchone()[0]
             user_id = new["user_id"]
             new_request = {
                 "id": new["id"],
@@ -205,9 +203,7 @@ class Incoming():
 
         elif action == "DELETE":
             old = payload["old"]
-            company_id = old["company_id"]
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
-            company = self.cur.fetchone()[0]
+            company = old["company"]
             user_id = old["user_id"]
             def procedure(data):
                 data[:] = [d for d in data if d["id"] != old["id"]]
@@ -215,15 +211,11 @@ class Incoming():
         else:
             old = payload["old"]
             new = payload["new"]
-            company_id = new["company_id"]
+            company = new["company"]
+            location = new["location"]
             task_id = new["task_id"]
-            location_id = new["location_id"]
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
-            company = self.cur.fetchone()[0]
             self.cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
             task = self.cur.fetchone()[0]
-            self.cur.execute("SELECT address FROM locations WHERE id=%s", [location_id])
-            location = self.cur.fetchone()[0]
             user_id = new["user_id"]
             new_request = {
                 "id": new["id"],
@@ -254,43 +246,27 @@ class Incoming():
                 "name": new["name"],
                 "completed": new["completed"]
             }
-            company_id = new["company_id"]
-            location_id = new["location_id"]
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
-            company = self.cur.fetchone()[0]
-            self.cur.execute("SELECT address FROM locations WHERE id=%s", [location_id])
-            location = self.cur.fetchone()[0]
+            company = new["company"]
+            location = new["location"]
 
             def procedure(data):
                 data[location][company].append(new_task)
 
         elif action == "DELETE":
             old = payload["old"]
-            company_id = old["company_id"]
-            location_id = old["location_id"]
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
-            company = self.cur.fetchone()[0]
-            self.cur.execute("SELECT address FROM locations WHERE id=%s", [location_id])
-            location = self.cur.fetchone()[0]
+            company = old["company"]
+            location = old["location"]
             def procedure(data):
                 data[location][company][:] = [d for d in data[location][company] if d["id"] != old["id"]]
 
         else:
             old = payload["old"]
             new = payload["new"]
-            old_company_id = old["company_id"]
-            old_location_id = old["location_id"]
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [old_company_id])
-            old_company = self.cur.fetchone()[0]
-            self.cur.execute("SELECT address FROM locations WHERE id=%s", [old_location_id])
-            old_location = self.cur.fetchone()[0]
+            old_company = old["company"]
+            old_location = old["location"]
 
-            new_company_id = new["company_id"]
-            new_location_id = new["location_id"]
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [new_company_id])
-            new_company = self.cur.fetchone()[0]
-            self.cur.execute("SELECT address FROM locations WHERE id=%s", [new_location_id])
-            new_location = self.cur.fetchone()[0]
+            new_company = new["company"]
+            new_location = new["location"]
 
             new_task = {
                 "id": new["id"],
@@ -308,19 +284,15 @@ class Incoming():
         action = payload["action"]
         if action == "INSERT":
             new = payload["new"]
-            company_user_id = new["company_user_relation_id"]
-            self.cur.execute("SELECT company_id, user_id FROM company_user_relation WHERE id=%s", [company_user_id])
-            company_id, user_id = self.cur.fetchone()
+            contract_id = new["contract_id"]
+            self.cur.execute("SELECT company, user_id FROM contracts WHERE id=%s", [contract_id])
+            company, user_id = self.cur.fetchone()
 
             task_id = new["task_id"]
-            location_id = new["location_id"]
+            location = new["location"]
 
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
-            company = self.cur.fetchone()[0]
             self.cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
             task = self.cur.fetchone()[0]
-            self.cur.execute("SELECT address FROM locations WHERE id=%s", [location_id])
-            location = self.cur.fetchone()[0]
 
             new_shift = {
                 "id": new["id"],
@@ -340,11 +312,9 @@ class Incoming():
 
         elif action == "DELETE":
             old = payload["old"]
-            company_user_id = old["company_user_relation_id"]
-            self.cur.execute("SELECT user_id, company_id FROM company_user_relation WHERE id=%s", [company_user_id])
-            user_id, company_id = self.cur.fetchone()
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
-            company = self.cur.fetchone()[0]
+            contract_id = old["contract_id"]
+            self.cur.execute("SELECT user_id, company FROM contracts WHERE id=%s", [contract_id])
+            user_id, company = self.cur.fetchone()
 
             def procedure(data):
                 data[:] = [d for d in data if d["id"] != old["id"]]
@@ -352,19 +322,15 @@ class Incoming():
         else:
             old = payload["old"]
             new = payload["new"]
-            company_user_id = new["company_user_relation_id"]
-            self.cur.execute("SELECT company_id, user_id FROM company_user_relation WHERE id=%s", [company_user_id])
-            company_id, user_id = self.cur.fetchone()
+            contract_id = new["contract_id"]
+            self.cur.execute("SELECT company, user_id FROM contracts WHERE id=%s", [contract_id])
+            company, user_id = self.cur.fetchone()
 
             task_id = new["task_id"]
-            location_id = new["location_id"]
+            location = new["location"]
 
-            self.cur.execute("SELECT name FROM companies WHERE id=%s", [company_id])
-            company = self.cur.fetchone()[0]
             self.cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
             task = self.cur.fetchone()[0]
-            self.cur.execute("SELECT address FROM locations WHERE id=%s", [location_id])
-            location = self.cur.fetchone()[0]
 
             new_shift = {
                 "id": new["id"],
