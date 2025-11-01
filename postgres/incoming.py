@@ -159,7 +159,10 @@ class Incoming():
         if action == "INSERT":
             new = payload["new"]
             def procedure(data):
-                data[new["address"]] = {}
+                self.cur.execute("SELECT name FROM companies", [])
+                companies = [row[0] for row in self.cur.fetchall()]
+
+                data[new["address"]] = {name: [] for name in companies}
 
         elif action == "DELETE":
             old = payload["old"]
