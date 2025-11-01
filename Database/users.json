@@ -1,13 +1,5 @@
 [
     {
-        "id": "2c228995-ac62-49dc-9d50-ab5a353f7ba6",
-        "name": "jones",
-        "company": "company1",
-        "pin": "1224",
-        "commute_minutes": 25,
-        "lunch_minutes": 0
-    },
-    {
         "id": "f0cde359-5546-4566-ae26-ee6eb3f57470",
         "name": "test",
         "company": "A1 málun",
@@ -62,5 +54,13 @@
         "pin": "3246",
         "commute_minutes": 25,
         "lunch_minutes": 0
+    },
+    {
+        "id": "b2bd5834-316c-4e69-92bd-1cf310b8e62b",
+        "name": "olafursaer",
+        "pin": "1234",
+        "company": "gamer",
+        "lunch_minutes": 0,
+        "commute_minutes": 25
     }
 ]

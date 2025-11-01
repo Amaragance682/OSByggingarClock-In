@@ -1,7 +1,6 @@
 {
     "Eyravegur 28-30, Selfoss": {
-        "test2": [],
-        "A1 málun1": [
+        "A1 málun": [
             {
                 "id": "f35f8804-c449-4e35-b9ac-005b3f9ab12f",
                 "name": "test",
@@ -18,55 +17,28 @@
                 "completed": false
             }
         ],
-        "TestComapyn": [],
-        "2025-10-27:21:51": []
-    },
-    "whatthefuckingshit3": {
         "gamer": [
             {
-                "id": "1cd69d50-d8d2-4c06-9929-6e9601fe3579",
-                "name": "gamer",
+                "id": "89ed8d19-ee00-43f1-a8ce-af9e9528869f",
+                "name": "gera enhv",
                 "completed": false
             }
-        ],
-        "TestComapyn": [],
-        "2025-10-27:21:51": []
-    },
-    "test": {
-        "TestComapyn": [],
-        "2025-10-27:21:51": []
+        ]
     },
     "Kyoto": {
-        "gamer": [],
-        "A1 málun1": [],
-        "company1": [],
-        "A1 málun": [
+        "gamer": [
             {
-                "id": "ffa1024a-53f6-4638-a4a2-44ee15427bca",
-                "name": "kyototask1",
-                "completed": false
-            },
-            {
-                "id": "faa1024a-53f6-4638-a4a2-44ee15427bca",
-                "name": "kyototask3",
-                "completed": false
-            },
-            {
-                "id": "aaa1024a-53f6-4638-a4a2-44ee15427bca",
-                "name": "kyototask4",
-                "completed": false
-            },
-            {
-                "id": "6afaae25-52f5-42f0-a2eb-5ad642503f28",
-                "name": "mondayTask",
+                "id": "89ed8d19-eef7-43f1-a8ce-af9e9528869f",
+                "name": "gera enhv",
                 "completed": false
             }
         ],
-        "test2": [],
-        "TestComapyn": [],
-        "2025-10-27:21:51": []
-    },
-    "2025-10-27": {
-        "2025-10-27:21:51": []
+        "A1 málun": [
+            {
+                "id": "89ed0d19-eef7-43f1-a8ce-af9e9528869f",
+                "name": "task1",
+                "completed": false
+            }
+        ]
     }
 }
