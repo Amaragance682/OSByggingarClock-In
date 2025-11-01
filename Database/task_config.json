@@ -1,44 +1,157 @@
 {
-    "Eyravegur 28-30, Selfoss": {
-        "A1 málun": [
-            {
-                "id": "f35f8804-c449-4e35-b9ac-005b3f9ab12f",
-                "name": "test",
-                "completed": false
-            },
-            {
-                "id": "512db8f3-f487-4c88-8983-114f0188c775",
-                "name": "test2",
-                "completed": false
-            },
-            {
-                "id": "97db991a-2166-4b2a-893a-60a9ae4858a4",
-                "name": "task3",
-                "completed": false
-            }
-        ],
-        "gamer": [
-            {
-                "id": "89ed8d19-ee00-43f1-a8ce-af9e9528869f",
-                "name": "gera enhv",
-                "completed": false
-            }
-        ]
-    },
-    "Kyoto": {
-        "gamer": [
-            {
-                "id": "89ed8d19-eef7-43f1-a8ce-af9e9528869f",
-                "name": "gera enhv",
-                "completed": false
-            }
-        ],
-        "A1 málun": [
-            {
-                "id": "89ed0d19-eef7-43f1-a8ce-af9e9528869f",
-                "name": "task1",
-                "completed": false
-            }
-        ]
-    }
+  "Eyravegur 28-30, Selfoss": {
+    "málara fyrirtæki": [
+      {
+        "id": "4521586c-de33-46b6-820c-5b1d0efa3091",
+        "name": "olistask",
+        "completed": false
+      },
+      {
+        "id": "5479bc69-d39b-47b4-818c-ab5dde0aab9a",
+        "name": "mála vegg á aðrari hæð",
+        "completed": false
+      },
+      {
+        "id": "c3a483c7-020d-4f5f-bc77-df088a7a2943",
+        "name": "spreyja vegg á aðrari hæð",
+        "completed": false
+      },
+      {
+        "id": "b3935eed-a51b-4c4e-b8ac-e19160051382",
+        "name": "þrífa upp málningu",
+        "completed": false
+      }
+    ],
+    "rafvirkjafyrirtæki": [
+      {
+        "id": "365183ac-a4f7-4b35-bef5-b045bc3d2f21",
+        "name": "mitt task123",
+        "completed": false
+      },
+      {
+        "id": "6530a530-600a-4f6e-af4a-9ccb19537865",
+        "name": "leggja niður rafmagn fyrir ljósastaura",
+        "completed": true
+      },
+      {
+        "id": "6a7d5332-5c33-48e2-8c89-d6e5e83a0930",
+        "name": "laga ljósaperu í húsi 101",
+        "completed": false
+      }
+    ],
+    "húsasmíðisfyrirtæki": [
+      {
+        "id": "2a3a1dcf-f4a6-4568-b2b4-2c17170ce481",
+        "name": "byggja vegg",
+        "completed": false
+      },
+      {
+        "id": "df33fbac-5327-46d4-8b01-c6f7cfdc677f",
+        "name": "byggja gólf",
+        "completed": false
+      },
+      {
+        "id": "81d5443a-ccff-4143-a8dc-d8457148ef98",
+        "name": "laga vegg á aðrari hæð",
+        "completed": false
+      }
+    ],
+    "píparafyrirtæki": [
+      {
+        "id": "6be5fe18-aaba-4de2-9c15-45a01e6cc2a7",
+        "name": "setja upp klósett í íbúð 101",
+        "completed": false
+      },
+      {
+        "id": "fb1d6601-5b2c-4e2e-a3ec-f9c13e439dda",
+        "name": "laga lekandi krana í íbúð 101",
+        "completed": false
+      }
+    ],
+    "OS Eignir": [
+      {
+        "id": "6347ccdf-6ff0-4ba9-8dd0-38758b13e4f2",
+        "name": "viðhald",
+        "completed": false
+      },
+      {
+        "id": "299b311f-75a8-40ba-bbeb-8539a3d3875c",
+        "name": "tölvuvinna",
+        "completed": false
+      },
+      {
+        "id": "1458ca9d-d70d-4f97-a8ed-08d9dd590c82",
+        "name": "annað",
+        "completed": false
+      }
+    ]
+  },
+  "reykjavik": {
+    "málara fyrirtæki": [
+      {
+        "id": "86a3b4f2-95f4-4a81-acba-d84da025e31c",
+        "name": "verkefni1",
+        "completed": false
+      }
+    ],
+    "rafvirkjafyrirtæki": [
+      {
+        "id": "40227106-09e8-4984-b841-619baccc38d4",
+        "name": "reykjaviktask",
+        "completed": true
+      }
+    ],
+    "húsasmíðisfyrirtæki": [],
+    "píparafyrirtæki": [],
+    "OS Eignir": []
+  },
+  "kopavogur": {
+    "málara fyrirtæki": [],
+    "rafvirkjafyrirtæki": [],
+    "húsasmíðisfyrirtæki": [],
+    "píparafyrirtæki": [],
+    "OS Eignir": []
+  },
+  "keflavik": {
+    "málara fyrirtæki": [
+      {
+        "id": "4df20779-07ec-45fe-a358-cf1d06cf1044",
+        "name": "mála vegg í dísadal 9",
+        "completed": false
+      }
+    ],
+    "rafvirkjafyrirtæki": [
+      {
+        "id": "55c887b4-ddc5-4b26-a25f-36dec166ab72",
+        "name": "kaupa 4 ljósaperur",
+        "completed": false
+      }
+    ],
+    "húsasmíðisfyrirtæki": [
+      {
+        "id": "05e24abd-0582-49f4-9056-39d8f0e3b630",
+        "name": "byggja vegg hjá dísadal 9",
+        "completed": false
+      }
+    ],
+    "píparafyrirtæki": [
+      {
+        "id": "fecccf6f-addb-4e75-86e8-a810a562b670",
+        "name": "setja upp pípur í dísadal 9",
+        "completed": false
+      }
+    ],
+    "OS Eignir": [
+      {
+        "id": "68ebb23e-9762-4e8c-b687-9c31f02d6163",
+        "name": "þrífa úti (óli)",
+        "completed": false
+      },
+      {
+        "id": "ee391d66-0b13-4448-9c26-a24a28de85d0",
+        "name": "kaupa ruslapoka",
+        "completed": false
+      }
+    ]
+  }
 }

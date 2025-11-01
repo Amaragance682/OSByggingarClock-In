@@ -1,66 +1,90 @@
 [
-    {
-        "id": "f0cde359-5546-4566-ae26-ee6eb3f57470",
-        "name": "test",
-        "company": "A1 málun",
-        "pin": "698",
-        "commute_minutes": 250,
-        "lunch_minutes": 10
-    },
-    {
-        "id": "79b52830-a087-4afb-a873-19dc1f02aaf1",
-        "name": "ragna4",
-        "company": "A1 málun",
-        "pin": "0203",
-        "commute_minutes": 25,
-        "lunch_minutes": 0
-    },
-    {
-        "id": "2cca9b20-090d-4bd5-936a-c858be0e5bb8",
-        "name": "ragnar2",
-        "company": "A1 málun",
-        "pin": "3344",
-        "commute_minutes": 25,
-        "lunch_minutes": 0
-    },
-    {
-        "id": "d305dd88-6658-4ead-b584-89436980acf7",
-        "name": "mycompanyuser",
-        "company": "gamer",
-        "pin": "2243",
-        "commute_minutes": 25,
-        "lunch_minutes": 0
-    },
-    {
-        "id": "d435d888-6658-4ead-b584-89436980acf0",
-        "name": "gamering",
-        "company": "gamer",
-        "pin": "2244",
-        "commute_minutes": 25,
-        "lunch_minutes": 0
-    },
-    {
-        "id": "a435d888-6658-4ead-b584-89436980acf0",
-        "name": "gamering",
-        "company": "gamer",
-        "pin": "3244",
-        "commute_minutes": 25,
-        "lunch_minutes": 0
-    },
-    {
-        "id": "a435d111-6658-4ead-b584-89436980acf0",
-        "name": "rangaer123",
-        "company": "gamer",
-        "pin": "3246",
-        "commute_minutes": 25,
-        "lunch_minutes": 0
-    },
-    {
-        "id": "b2bd5834-316c-4e69-92bd-1cf310b8e62b",
-        "name": "olafursaer",
-        "pin": "1234",
-        "company": "gamer",
-        "lunch_minutes": 0,
-        "commute_minutes": 25
-    }
+  {
+    "id": "6729da03-d68e-400a-a693-bda467667446",
+    "name": "Ólafur Sær",
+    "company": "OS Eignir",
+    "pin": "4662",
+    "commute_minutes": 100,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "553024f4-b5d3-4c61-b8e2-8bed765de0f7",
+    "name": "Jóhann",
+    "company": "OS Eignir",
+    "pin": "0001",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "a537352e-30ef-4ae0-b15d-844ce52217ed",
+    "name": "Jeff",
+    "company": "OS Eignir",
+    "pin": "0002",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "f204580e-825f-400e-a743-0c8047e8f24e",
+    "name": "Bubbi",
+    "company": "húsasmíðisfyrirtæki",
+    "pin": "0101",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "ac064406-5e9a-4073-bd3d-2cf52e6e7961",
+    "name": "Tómas",
+    "company": "húsasmíðisfyrirtæki",
+    "pin": "0102",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "364c68a5-fe5e-49b4-959b-2dfe2e0d4dc3",
+    "name": "Andri",
+    "company": "málara fyrirtæki",
+    "pin": "0201",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "4b107edc-300c-4a0f-843a-791339efab58",
+    "name": "Símon",
+    "company": "málara fyrirtæki",
+    "pin": "0201",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "f25e1dd5-70c3-4d78-b1f8-2f80e6bd3bbd",
+    "name": "Guðjón",
+    "company": "píparafyrirtæki",
+    "pin": "0301",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "7a2a74e7-47b2-4adb-a11e-a3e01d25d7af",
+    "name": "Andrés",
+    "company": "píparafyrirtæki",
+    "pin": "0302",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "789758b5-fbe8-46ce-a31a-496fa926e711",
+    "name": "Davíð",
+    "company": "rafvirkjafyrirtæki",
+    "pin": "0401",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  },
+  {
+    "id": "22cc0092-a78e-47a5-8cb0-4301964af825",
+    "name": "Daníel",
+    "company": "rafvirkjafyrirtæki",
+    "pin": "0402",
+    "commute_minutes": 25,
+    "lunch_minutes": 0
+  }
 ]

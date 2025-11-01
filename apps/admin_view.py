@@ -326,8 +326,14 @@ class AdminApp(tk.Tk):
                 under.pack_forget()
 
     def clear_main_area(self):
+        # cancel control board timer if set
+        if hasattr(self, "_cb_after_id") and self._cb_after_id:
+            try: self.after_cancel(self._cb_after_id)
+            except: pass
+            self._cb_after_id = None
         for widget in self.main_area.winfo_children():
             widget.destroy()
+
 
     def create_shift_viewer(self):
         self.main_area = tk.Frame(self, bg="#f4f4f4")
@@ -907,55 +913,386 @@ class AdminApp(tk.Tk):
 
     def show_control_board(self):
         self.clear_main_area()
+        self._cb_after_id = None  # initialize
 
-        ttk.Label(self.main_area,
-                text="Currently Working — Control Board",
-                style="Heading.TLabel").pack(anchor="w", padx=12, pady=(12, 4))
+        self.cb_canvas = tk.Canvas(self.main_area, bg=self.APP_BG, highlightthickness=0)
+        self.cb_vbar   = tk.Scrollbar(self.main_area, orient="vertical", command=self.cb_canvas.yview)
+        self.cb_canvas.configure(yscrollcommand=self.cb_vbar.set)
+        self.cb_canvas.pack(side="left", fill="both", expand=True)
+        self.cb_vbar.pack(side="right", fill="y")
 
-        # Filter toolbar (Location only)
-        left, right = self._toolbar(self.main_area)
-        self.cb_location_var = tk.StringVar(value="Any")
-        self.cb_location_cb = self._chip_combobox(
-            left, "Location",
-            textvariable=self.cb_location_var, state="readonly",
-            width=35, style="Filter.TCombobox",
-            values=["Any"] + sorted(self.task_config.keys())
-        )
-        self.cb_location_cb.bind("<<ComboboxSelected>>", lambda e: self.refresh_control_board())
+        self.cb_cards_frame = tk.Frame(self.cb_canvas, bg=self.APP_BG)
+        self.cb_canvas.create_window((0, 0), window=self.cb_cards_frame, anchor="nw")
+        self.cb_cards_frame.bind("<Configure>",
+            lambda e: self.cb_canvas.configure(scrollregion=self.cb_canvas.bbox("all")))
 
-
-
-        # Cards container
-        self.cb_cards_frame = tk.Frame(self.main_area, bg=self.APP_BG)
-        self.cb_cards_frame.pack(fill="both", expand=True, padx=10, pady=10)
         self.refresh_control_board()
 
 
+
+
     def refresh_control_board(self):
-        # Clear old
+        # If the control-board UI isn’t on screen anymore, bail out safely
+        if not hasattr(self, "cb_cards_frame") or not self.cb_cards_frame.winfo_exists():
+            return
+
+        # If there is a pending timer, cancel it before rebuilding
+        if hasattr(self, "_cb_after_id") and self._cb_after_id:
+            try: self.after_cancel(self._cb_after_id)
+            except: pass
+            self._cb_after_id = None
+
         for w in self.cb_cards_frame.winfo_children():
             w.destroy()
 
-        app_bg = "#f4f4f4"
-        card_cols = 3  # how many cards per row
+        # bigger cards, two per row
+        per_row = 2
+        for c in range(per_row):
+            self.cb_cards_frame.grid_columnconfigure(c, weight=1, uniform="cbcol", minsize=650)
 
-        for c in range(card_cols):
-            self.cb_cards_frame.grid_columnconfigure(c, weight=1, uniform="col")
+        # ALWAYS show all locations
+        locations = sorted(self.task_config.keys())
 
-        loc_filter = getattr(self, "cb_location_var", None)
-        loc_filter = loc_filter.get() if loc_filter else "Any"
+        cards = [self._build_location_metrics(loc) for loc in locations]
 
-        summary = self.get_currently_working_summary(loc_filter)
-
-        if not summary:
-            tk.Label(self.cb_cards_frame, text="No one is currently working.",
-                    font=("Helvetica", 14, "italic"), fg="gray50", bg=app_bg).pack(pady=20)
+        if not cards:
+            tk.Label(self.cb_cards_frame, text="Engir starfsmenn skráðir í dag.",
+                    font=("Helvetica", 14, "italic"), fg="gray50", bg=self.APP_BG) \
+            .grid(sticky="n", padx=20, pady=20)
             return
 
-        for idx, (company, names) in enumerate(sorted(summary.items())):
-            r, c = divmod(idx, card_cols)
-            card = self._company_card(self.cb_cards_frame, company, sorted(names))
-            card.grid(row=r, column=c, padx=10, pady=10, sticky="nsew")
+        for i, m in enumerate(cards):
+            r, c = divmod(i, per_row)
+            card_outer = self._location_card(self.cb_cards_frame, **m, _wide=True)
+            card_outer.grid(row=r, column=c, padx=14, pady=14, sticky="nsew")
+            self.cb_cards_frame.grid_rowconfigure(r, weight=1, minsize=350)
+
+        # auto-refresh
+        self.after(30_000, self.refresh_control_board)
+
+
+
+    def _sort_treeview(self, tv: ttk.Treeview, col_index: int, numeric: bool=False, reverse: bool=False):
+        def key(row):
+            v = tv.item(row, "values")[col_index]
+            if numeric:
+                try:
+                    return int(v)
+                except Exception:
+                    return -10**9
+            return str(v).lower()
+        rows = list(tv.get_children(""))
+        rows.sort(key=key, reverse=reverse)
+        for i, r in enumerate(rows):
+            tv.move(r, "", i)
+        # toggle on next click
+        tv.heading(tv["columns"][col_index], command=lambda: self._sort_treeview(tv, col_index, numeric, not reverse))
+
+
+
+    def _build_location_metrics(self, location: str):
+        """
+        Return metrics for a location:
+        - company_rows: list of (company, active_now, worked_today)
+        - total_on_site, total_worked_today
+        Always returns a dict (zeros ok).
+        """
+        if location not in self.task_config:
+            return {
+                "location": location,
+                "company_rows": [],
+                "total_on_site": 0,
+                "total_worked_today": 0,
+            }
+
+        start_today = datetime.combine(datetime.now().date(), datetime.min.time())
+        end_today   = start_today + timedelta(days=1)
+        now_dt      = datetime.now()
+
+        active_now_by_company  = defaultdict(set)  # company -> {uid}
+        worked_today_by_company= defaultdict(set)  # company -> {uid}
+        on_site_now_ids        = set()
+        worked_today_ids       = set()
+
+        for u in self.users:
+            company = u.get("company", "Óskilgreint")
+            try:
+                logs = load_employee_logs(u)
+            except Exception:
+                continue
+
+            for log in logs:
+                if log.get("location") != location:
+                    continue
+
+                s = _parse_iso(log.get("clock_in"))
+                e = _parse_iso(log.get("clock_out"))
+                if not s:
+                    continue
+
+                # active now?
+                if e is None:
+                    on_site_now_ids.add(u["id"])
+                    active_now_by_company[company].add(u["id"])
+
+                # overlaps today?
+                e2 = e or now_dt
+                if s < end_today and e2 > start_today:
+                    worked_today_ids.add(u["id"])
+                    worked_today_by_company[company].add(u["id"])
+
+        # build sorted rows (active desc, then name)
+        company_rows = []
+        all_companies = set(active_now_by_company.keys()) | set(worked_today_by_company.keys())
+        for comp in all_companies:
+            company_rows.append((
+                comp,
+                len(active_now_by_company.get(comp, set())),
+                len(worked_today_by_company.get(comp, set())),
+            ))
+        company_rows.sort(key=lambda r: (-r[1], r[0]))
+
+        return {
+            "location": location,
+            "company_rows": company_rows,
+            "total_on_site": len(on_site_now_ids),
+            "total_worked_today": len(worked_today_ids),
+        }
+
+
+    
+
+    def _location_card(self, parent, *, location, company_rows, total_on_site, total_worked_today, _wide=True):
+        # palette
+        APP_BG    = self.APP_BG
+        CARD_BG   = "#ffffff"
+        BORDER    = self.BORDER
+        HEADER_BG = "#e9f0f8"
+        TEXT      = self.TEXT
+        MUTED     = self.MUTED
+        ROW_ALT   = "#fafafa"
+        HOVER_BG  = "#eef3fb"
+
+        # sizing / typography
+        pad        = 16 if _wide else 12
+        hdr_font   = ("Helvetica", 15, "bold") if _wide else ("Helvetica", 13, "bold")
+        label_b    = ("Helvetica", 11, "bold") if _wide else ("Helvetica", 10, "bold")
+        label_n    = ("Helvetica", 11)         if _wide else ("Helvetica", 10)
+        pill_title = ("Helvetica", 11, "bold") if _wide else ("Helvetica", 10, "bold")
+        pill_value = ("Helvetica", 26, "bold") if _wide else ("Helvetica", 22, "bold")
+
+        outer = tk.Frame(parent, bg=APP_BG)
+
+        # let the card size itself (no fixed width/height, no pack_propagate(False))
+        card = tk.Frame(
+            outer, bg=CARD_BG, highlightthickness=1,
+            highlightbackground=BORDER, highlightcolor=BORDER
+        )
+        card.pack(fill="both", expand=True, padx=8, pady=8)
+
+        # Header
+        hdr = tk.Frame(card, bg=HEADER_BG); hdr.pack(fill="x")
+        tk.Label(hdr, text=location, font=hdr_font, bg=HEADER_BG, fg=TEXT, pady=10)\
+            .pack(side="left", padx=pad)
+        tk.Frame(card, height=2, bg=self.ACCENT).pack(fill="x")
+
+        body = tk.Frame(card, bg=CARD_BG); body.pack(fill="both", expand=True, padx=pad, pady=pad)
+        body.grid_columnconfigure(0, weight=3)
+        body.grid_columnconfigure(1, weight=2)
+
+        # ---------- Left: simple table (auto height, no scrollbar) ----------
+        left = tk.Frame(body, bg=CARD_BG)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, pad))
+        left.grid_columnconfigure(0, weight=1)
+        left.grid_columnconfigure(1, weight=0)
+
+        # table header (plain text, not clickable)
+        th = tk.Frame(left, bg="#f7f7fb", highlightthickness=1, highlightbackground=BORDER)
+        th.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        tk.Label(th, text="Fyrirtæki",   font=label_b, bg="#f7f7fb", fg=TEXT, padx=10, pady=8).pack(side="left")
+        tk.Label(th, text="Á stað / Í dag", font=label_b, bg="#f7f7fb", fg=TEXT, padx=10, pady=8).pack(side="right")
+
+        # rows
+        if not company_rows:
+            row = tk.Frame(left, bg=CARD_BG, highlightthickness=1, highlightbackground=BORDER)
+            row.grid(row=1, column=0, columnspan=2, sticky="ew")
+            tk.Label(row, text="— enginn skráður núna —", font=label_n, bg=CARD_BG, fg=MUTED, padx=10, pady=8)\
+            .pack(anchor="w")
+        else:
+            for i, (comp, active_cnt, today_cnt) in enumerate(company_rows, start=1):
+                bg = CARD_BG if i % 2 else ROW_ALT
+                row = tk.Frame(left, bg=bg, highlightthickness=1, highlightbackground=BORDER)
+                row.grid(row=i, column=0, columnspan=2, sticky="ew")
+                # hover
+                def _mk_hover(r=row, base=bg):
+                    r.bind("<Enter>", lambda _e, rr=r: rr.configure(bg=HOVER_BG))
+                    r.bind("<Leave>", lambda _e, rr=r, bb=base: rr.configure(bg=bb))
+                _mk_hover()
+
+                # company name (clickable)
+                name_lbl = tk.Label(row, text=comp, font=label_n, bg=bg, fg=TEXT, padx=10, pady=8, anchor="w")
+                name_lbl.pack(side="left", fill="x", expand=True)
+
+                # counts “A / D”
+                cnt_lbl = tk.Label(row, text=f"{active_cnt} / {today_cnt}", font=label_b, bg=bg, fg=TEXT, padx=10, pady=8)
+                cnt_lbl.pack(side="right")
+
+                # open detail on double click or Enter
+                def _open(_=None, L=location, C=comp):
+                    self._open_company_detail(L, C)
+                for w in (row, name_lbl, cnt_lbl):
+                    w.bind("<Double-1>", _open)
+                    w.bind("<Return>", _open)
+                    w.configure(cursor="hand2")
+
+        # ---------- Right: stat pills ----------
+        right = tk.Frame(body, bg=CARD_BG)
+        right.grid(row=0, column=1, sticky="n")
+
+        def stat_pill(title, value):
+            wrap = tk.Frame(right, bg="#eef3fb", highlightthickness=1, highlightbackground=BORDER)
+            wrap.pack(fill="x", pady=8)
+            tk.Label(wrap, text=title, font=pill_title, bg="#eef3fb", fg=MUTED, padx=12, pady=8, anchor="w").pack(fill="x")
+            tk.Label(wrap, text=str(value), font=pill_value, bg="#eef3fb", fg=TEXT, pady=10).pack()
+
+        stat_pill("Fjöldi manns á stað:", total_on_site)
+        stat_pill("Fjöldi manns búin að vinna hér í dag:", total_worked_today)
+
+        return outer
+
+
+
+
+
+    def _open_company_detail(self, location: str, company: str):
+        """
+        Popup with two tables:
+        - Currently Working now at (location, company)
+        - Worked here today (finished or active earlier)
+        """
+        start_today = datetime.combine(datetime.now().date(), datetime.min.time())
+        end_today   = start_today + timedelta(days=1)
+        now_dt      = datetime.now()
+
+        active_rows   = []  # (name, task, start_str, duration_str)
+        today_rows    = []  # (name, task, start_str, end_str, total_str)
+
+        for u in self.users:
+            if u.get("company") != company:
+                continue
+            try:
+                logs = load_employee_logs(u)
+            except Exception:
+                continue
+
+            # track if this user already counted in 'today_rows'
+            added_today = False
+            for log in logs:
+                if log.get("location") != location:
+                    continue
+
+                s = _parse_iso(log.get("clock_in"))
+                e = _parse_iso(log.get("clock_out"))
+                if not s:
+                    continue
+                task = log.get("task","")
+
+                # Active now?
+                if e is None:
+                    dur = now_dt - s
+                    hrs = int(dur.total_seconds() // 3600)
+                    mins = int((dur.total_seconds() % 3600) // 60)
+                    active_rows.append((
+                        u["name"],
+                        task,
+                        s.strftime("%H:%M"),
+                        f"{hrs}h {mins}m"
+                    ))
+
+                # Overlaps today?
+                e2 = e or now_dt
+                if s < end_today and e2 > start_today and not added_today:
+                    total = e2 - s
+                    # subtract lunch/commute only if finished (to match your finished card logic)
+                    lunch_m   = int(log.get("lunch_minutes", u.get("lunch_minutes", 0)) or 0)
+                    commute_m = int(log.get("commute_minutes", u.get("commute_minutes", 0)) or 0)
+                    if e is not None:
+                        total = total + timedelta(minutes=commute_m) - timedelta(minutes=lunch_m)
+                        if total.total_seconds() < 0:
+                            total = timedelta(0)
+                    th = int(total.total_seconds() // 3600)
+                    tm = int((total.total_seconds() % 3600) // 60)
+                    today_rows.append((
+                        u["name"], task,
+                        s.strftime("%H:%M"),
+                        (e.strftime("%H:%M") if e else "—"),
+                        f"{th}h {tm}m"
+                    ))
+                    added_today = True
+
+        # sort nicely
+        active_rows.sort(key=lambda r: (r[0], r[2]))
+        today_rows.sort(key=lambda r: (r[0], r[2]))
+
+        # ── UI ───────────────────────────────────────────
+        win = tk.Toplevel(self)
+        win.title(f"{location} — {company}")
+        win.geometry("760x520")
+        win.configure(bg=self.APP_BG)
+
+        # header
+        ttk.Label(win, text=f"{location} — {company}", style="Heading.TLabel") \
+            .pack(anchor="w", padx=12, pady=(12, 6))
+
+        container = tk.Frame(win, bg=self.APP_BG); container.pack(fill="both", expand=True, padx=10, pady=10)
+        container.grid_columnconfigure(0, weight=1)
+
+        # helper to build a Treeview card
+        def make_table(parent, title, columns, rows):
+            outer, body = self._section_card(parent, title, fill_y=False)
+            outer.grid(sticky="ew", padx=6, pady=6)
+            body.grid_columnconfigure(0, weight=1)
+
+            tv = ttk.Treeview(body, columns=columns, show="headings", height=8)
+            tv.grid(row=0, column=0, sticky="nsew")
+            sb = ttk.Scrollbar(body, orient="vertical", command=tv.yview)
+            sb.grid(row=0, column=1, sticky="ns")
+            tv.configure(yscrollcommand=sb.set)
+
+            # column headings & widths
+            for col, width in columns:
+                tv.heading(col, text=col)
+                tv.column(col, width=width, anchor="center")
+
+            for row in rows:
+                tv.insert("", "end", values=row)
+
+            return tv
+
+        # Active now
+        make_table(
+            container,
+            f"Fólk á vakt núna ({len(active_rows)})",
+            [("Nafn", 200), ("Verk", 220), ("Frá", 80), ("Tími", 90)],
+            active_rows
+        )
+
+        # Worked today
+        make_table(
+            container,
+            f"Vinna í dag ({len(today_rows)})",
+            [("Nafn", 200), ("Verk", 220), ("Byrjaði", 80), ("Endaði", 80), ("Samtals", 90)],
+            today_rows
+        )
+
+        # Close button
+        tk.Button(win, text="Close", command=win.destroy).pack(pady=6)
+
+
+    def _hover_highlight(self, widget, base_bg, hover_bg="#eef3fb"):
+        widget.bind("<Enter>", lambda _e: widget.configure(bg=hover_bg))
+        widget.bind("<Leave>", lambda _e: widget.configure(bg=base_bg))
+
 
     def _company_card(self, parent, company, names):
         # colors
@@ -1066,26 +1403,6 @@ class AdminApp(tk.Tk):
         else:
             tk.Label(body_f, text="No finished shifts in range.",
                     font=("Helvetica", 11, "italic"), fg="gray50", bg="#ffffff").pack(anchor="w", padx=10, pady=8)
-
-
-
-
-    def get_currently_working_summary(self, location_filter="Any"):
-        """
-        Return {company: [names]} for users who have an *open* shift.
-        If location_filter != "Any", only count shifts at that location.
-        """
-        summary = {}
-        for user in self.users:
-            logs = load_employee_logs(user)
-            # If the user has any open shift that matches the location filter, include them once
-            for log in logs:
-                if log.get("clock_out") is None:
-                    if location_filter == "Any" or log.get("location") == location_filter:
-                        comp = user.get("company", "Unknown")
-                        summary.setdefault(comp, []).append(user["name"])
-                        break  # don't add same user twice if multiple open logs
-        return summary
 
 
     def _section_card(self, parent, title, accent="#3b82f6", fill_y=True):
@@ -1859,6 +2176,24 @@ class AdminApp(tk.Tk):
         style.map("Filter.TCombobox",
             foreground=[("disabled", "#9aa5b1")],
         )
+        # Treeview styling for dashboard tables
+        style.configure("Dashboard.Treeview",
+            background="#ffffff",
+            fieldbackground="#ffffff",
+            rowheight=28,
+            font=("Helvetica", 10),
+            borderwidth=0
+        )
+        style.configure("Dashboard.Treeview.Heading",
+            font=("Helvetica", 10, "bold"),
+        )
+        style.map("Dashboard.Treeview",
+            background=[("selected", "#e5f0ff")],
+            foreground=[("selected", "#0f172a")],
+        )
+        style.layout("Dashboard.Treeview", style.layout("Treeview"))  # keep default layout
+        style.layout("Dashboard.Treeview.Heading", style.layout("Treeview.Heading"))
+
 
         # Cards toolbars / search / tiny buttons
         style.configure("CardToolbar.TFrame", background="#ffffff")
@@ -1909,22 +2244,18 @@ class AdminApp(tk.Tk):
     def on_user_company_selected(self, event=None):
         comp = self.user_company_var.get()
         self.user_lb.delete(0, "end")
+        self._user_list_ids = []
 
-        if comp == "Any":
-            # show everyone (sorted is nice but optional)
-            for u in sorted(self.users, key=lambda x: (x.get("company",""), x["name"])):
-                self.user_lb.insert("end", f"{u['name']}")
-            # block adding while 'Any' is selected
-            if hasattr(self, "add_user_btn"):
-                self.add_user_btn.configure(state="disabled")
-        else:
-            for u in self.users:
-                if u["company"] == comp:
-                    self.user_lb.insert("end", f"{u['name']}")
-            if hasattr(self, "add_user_btn"):
-                self.add_user_btn.configure(state="normal")
+        for u in self.users:
+            if comp == "Any" or u.get("company") == comp:
+                self.user_lb.insert("end", u["name"])
+                self._user_list_ids.append(u["id"])
 
-        self.current_user = None
+        # correct attribute name:
+        if hasattr(self, "add_user_btn"):
+            self.add_user_btn.configure(state=("disabled" if comp == "Any" else "normal"))
+
+
 
     def _scrolled_listbox(self, parent, *, height=12):
         """Compact listbox + vertical scrollbar that doesn't grow vertically."""
@@ -1941,6 +2272,9 @@ class AdminApp(tk.Tk):
     def build_hierarchical_db_tab(self, parent):
         self.users = load_users()
         self.task_config = load_task_config()
+
+        self._user_list_ids = []   # listbox index -> user id
+
         # Title + breadcrumb
         ttk.Label(parent, text="Database Manager", style="Heading.TLabel") \
             .pack(anchor="w", padx=12, pady=(12, 6))
@@ -2483,15 +2817,23 @@ class AdminApp(tk.Tk):
 
     def edit_user(self):
         """Popup to edit the selected user’s name, PIN, commute—and now default lunch time."""
+    def edit_user(self):
         sel = self.user_lb.curselection()
         if not sel:
             return messagebox.showerror("Error", "Select a user first.")
-        text = self.user_lb.get(sel)
-        name  = text
-        user = next(u for u in self.users if u["name"] == name)
+        idx = sel[0]
+        if idx >= len(self._user_list_ids):
+            return messagebox.showerror("Error", "Invalid selection.")
+
+        uid  = self._user_list_ids[idx]
+        user = next((u for u in self.users if u["id"] == uid), None)
+        if not user:
+            return messagebox.showerror("Error", "User not found.")
+        # ... keep the rest of the dialog unchanged
+
 
         dlg = tk.Toplevel(self)
-        dlg.title(f"Edit user {name}")
+        dlg.title(f"Edit user '{user['name']}'")
 
         # — Name —
         tk.Label(dlg, text="Name:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
@@ -2548,31 +2890,44 @@ class AdminApp(tk.Tk):
         
 
     def delete_user(self):
-        """Delete the selected user after confirmation."""
-        # 1) Make sure a user is selected
         sel = self.user_lb.curselection()
         if not sel:
             return messagebox.showerror("Error", "Select a user first.")
+        idx = sel[0]
+        if idx >= len(self._user_list_ids):
+            return messagebox.showerror("Error", "Invalid selection.")
 
-        # 2) Extract the user‐ID from the listbox entry
-        list_entry = self.user_lb.get(sel[0])
-        user_id = list_entry.split(":", 1)[0]
+        uid  = self._user_list_ids[idx]
+        user = next((u for u in self.users if u["id"] == uid), None)
+        if not user:
+            return messagebox.showerror("Error", "User not found.")
 
-        # 3) Confirm deletion
-        confirm = messagebox.askyesno(
+        if not messagebox.askyesno(
             "Confirm Deletion",
-            f"Are you sure you want to delete user '{user_id}'?"
-        )
-        if not confirm:
+            f"Delete user '{user['name']}' from {user.get('company','')}?"
+        ):
             return
 
-        # 4) Remove from in‑memory list & save
-        self.users = [u for u in self.users if u["id"] != user_id]
+        # remove from users.json
+        self.users = [u for u in self.users if u["id"] != uid]
         save_users(self.users)
 
-        # 5) Refresh the UI
-        messagebox.showinfo("Deleted", f"User '{user_id}' removed.")
+        # optional: remove this user's logs (both layouts)
+        try:
+            comp = user.get("company")
+            if comp:
+                p = Path(COMPANY_FOLDER) / comp / f"{uid}.json"
+                if p.exists(): p.unlink()
+                for loc_dir in Path(COMPANY_FOLDER).iterdir():
+                    if loc_dir.is_dir():
+                        p2 = loc_dir / comp / f"{uid}.json"
+                        if p2.exists(): p2.unlink()
+        except Exception:
+            pass
+
         self.on_user_company_selected()
+        messagebox.showinfo("Deleted", f"User '{user['name']}' removed.")
+
 
 
 if __name__ == "__main__":
