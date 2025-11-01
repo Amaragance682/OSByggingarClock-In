@@ -10,12 +10,14 @@ cur = conn.cursor()
 cur.execute(f"""
 CREATE TABLE IF NOT EXISTS locations (
     address TEXT NOT NULL PRIMARY KEY,
-    created_at TIMESTAMP DEFAULT now()
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS companies (
     name TEXT NOT NULL PRIMARY KEY,
-    created_at TIMESTAMP DEFAULT now()
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -23,14 +25,17 @@ CREATE TABLE IF NOT EXISTS tasks (
     name TEXT NOT NULL,
     company TEXT NOT NULL REFERENCES companies(name) ON DELETE CASCADE,
     location TEXT NOT NULL REFERENCES locations(address) ON DELETE CASCADE,
-    completed BOOLEAN DEFAULT false
+    completed BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     pin TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT now()
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS contracts (
@@ -40,6 +45,7 @@ CREATE TABLE IF NOT EXISTS contracts (
     role              TEXT CHECK(role IN ('employee','contractor','admin','manager')) DEFAULT 'employee',
     custom_settings   JSONB,
     created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now(),
     UNIQUE(user_id, company)
 );
 
@@ -51,7 +57,8 @@ CREATE TABLE IF NOT EXISTS shifts (
     clock_in TIMESTAMP NOT NULL,
     clock_out TIMESTAMP,
     extra JSONB,
-    created_at      TIMESTAMP DEFAULT now()
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS requests (
@@ -64,7 +71,16 @@ CREATE TABLE IF NOT EXISTS requests (
     requested_end TIMESTAMP NOT NULL,
     extra JSONB,
     reason TEXT,
-    status TEXT CHECK (status IN ('pending','approved','rejected')) DEFAULT 'pending'
+    status TEXT CHECK (status IN ('pending','approved','rejected')) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS delete_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    from_table TEXT NOT NULL,
+    data JSONB NOT NULL,
+    deletion_timestamp TIMESTAMP DEFAULT now()
 );
 
 CREATE OR REPLACE FUNCTION notify_request_change()
@@ -112,6 +128,8 @@ BEGIN
         'source', v_source
       )::text
     );
+    INSERT INTO delete_history (from_table, data)
+    VALUES (TG_TABLE_NAME, row_to_json(OLD));
     RETURN OLD;
   END IF;
 END;

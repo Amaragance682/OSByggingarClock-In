@@ -49,7 +49,7 @@ def update_user(cur, value):
     contract_fields, contract_values = _contract_fields_and_values(_map_contract(cur, value))
 
     sql = update_sql("contracts", contract_fields, "user_id")
-    cur.execute(sql, contract_values + [user_id])
+    cur.execute(sql, contract_values)
 
 def delete_user(cur, value):
     fields, values = _user_fields_and_values(value)
