@@ -1,3 +1,4 @@
+from datetime import datetime
 from postgres.api.helpers import add_sql, delete_sql, update_sql
 import psycopg2
 
@@ -58,6 +59,73 @@ def delete_shift(cur, value):
 
     sql = delete_sql("shifts", "id")
     cur.execute(sql, [id])
+
+def add_local_shift(new, data, cur):
+    contract_id = new["contract_id"]
+    cur.execute("SELECT company, user_id FROM contracts WHERE id=%s", [contract_id])
+    company, user_id = cur.fetchone()
+
+    task_id = new["task_id"]
+    location = new["location"]
+
+    cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
+    task = cur.fetchone()[0]
+
+    new_shift = {
+        "id": new["id"],
+        "task": task,
+        "location": location,
+        "clock_in": new["clock_in"].isoformat()
+    }
+
+    if "clock_out" in new.keys():
+        new_shift["clock_out"] = new["clock_out"].isoformat()
+
+        for field, value in new["extra"] or {}.items():
+            new_shift[field] = value
+
+    data.append(new_shift)
+    return (user_id, company)
+
+def delete_local_shift(old, data, cur):
+    contract_id = old["contract_id"]
+    cur.execute("SELECT user_id, company FROM contracts WHERE id=%s", [contract_id])
+    user_id, company = cur.fetchone()
+    data[:] = [d for d in data if d["id"] != old["id"]]
+    return (user_id, company)
+
+def delete_local_shift_by_id(id, data):
+    data[:] = [d for d in data if d["id"] != id]
+
+def edit_local_shift(new, data, cur):
+    print("editing shift:", new)
+    contract_id = new["contract_id"]
+
+    task_id = new["task_id"]
+    location = new["location"]
+
+    cur.execute("SELECT user_id, company FROM contracts WHERE id=%s", [contract_id])
+    user_id, company = cur.fetchone()
+
+    cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
+    task = cur.fetchone()[0]
+
+    new_shift = {
+        "id": new["id"],
+        "task": task,
+        "location": location,
+        "clock_in": new["clock_in"].isoformat()
+    }
+    if "clock_out" in new.keys():
+        new_shift["clock_out"] = new["clock_out"].isoformat()
+        for field, value in new["extra"] or {}.items():
+            new_shift[field] = value
+
+    for d in data:
+        if d["id"] == new["id"]:
+            d.update(new_shift)
+    return (user_id, company)
+
 
 if __name__ == "__main__":
     pass

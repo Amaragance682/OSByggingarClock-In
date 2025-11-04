@@ -61,3 +61,34 @@ def delete_user(cur, value):
 
     sql = delete_sql("contracts", "user_id")
     cur.execute(sql, [id])
+
+def add_local_user(new, data, _cur):
+    new_user = {
+        "id": new["id"],
+        "name": new["name"],
+        "pin": new["pin"]
+    }
+    data.append(new_user)
+def delete_local_user(old, data):
+    data[:] = [d for d in data if d["id"] != old["id"]]
+def delete_local_user_from_id(id, data):
+    data[:] = [d for d in data if d["id"] != id]
+def edit_local_user(new, data, _cur):
+    for i, d in enumerate(data):
+        if d["id"] == new["id"]:
+            data[i] = new
+            break
+def add_local_contract(new, data, _cur):
+    company = new["company"]
+
+    for i, d in enumerate(data):
+        if d["id"] == new["user_id"]:
+            data[i]["company"] = company
+            for i2, d2 in new["custom_settings"].items():
+                data[i][i2] = d2
+def edit_local_contract(new, data, _cur):
+    for i, d in enumerate(data):
+        if d["id"] == new["user_id"]:
+            for i2, d2 in new["custom_settings"].items():
+                data[i][i2] = d2
+            data[i]["company"] = new["company"]

@@ -7,7 +7,13 @@ import select
 import time
 from dotenv import load_dotenv
 from apps.app import LOCATION
-from pathlib import Path
+from lib.lib import resolve_from_row, read, update_last_sync
+from postgres.api.companies import add_local_company, delete_local_company, edit_local_company
+from postgres.api.locations import add_local_location, delete_local_location, edit_local_location
+from postgres.api.requests import add_local_request, delete_local_request, edit_local_request
+from postgres.api.shifts import add_local_shift, delete_local_shift, edit_local_shift
+from postgres.api.tasks import add_local_task, delete_local_task, edit_local_task
+from postgres.api.users import add_local_contract, add_local_user, delete_local_user, edit_local_contract, edit_local_user
 
 class Incoming():
     def __init__(self, outgoing):
@@ -36,32 +42,36 @@ class Incoming():
                 payload = json.loads(notify.payload)
                 if payload["source"] == LOCATION:
                     continue
+                update_last_sync()
                 print("Got NOTIFY:", notify.payload)
                 table = payload["table"]
                 if table == "users":
-                    self.handle_users(payload)
+                    path = "Database/users.json"
+                    self.handle_users(payload, path)
                 if table == "companies":
-                    self.handle_companies(payload)
+                    path = "Database/task_config.json"
+                    self.handle_companies(payload, path)
                 if table == "locations":
-                    self.handle_locations(payload)
+                    path = "Database/task_config.json"
+                    self.handle_locations(payload, path)
                 if table == "contracts":
-                    self.handle_contracts(payload)
-                if table == "requests":
-                    self.handle_requests(payload)
+                    path = "Database/users.json"
+                    self.handle_contracts(payload, path)
                 if table == "tasks":
-                    self.handle_tasks(payload)
+                    path = "Database/users.json"
+                    self.handle_tasks(payload, path)
+                if table == "requests":
+                    user_id, company = resolve_from_row(
+                            payload["new"] or payload["old"], self.cur)
+                    path = f"Database/requests/{company}/{user_id}_requests.json"
+                    self.handle_requests(payload, path)
                 if table == "shifts":
-                    self.handle_shifts(payload)
+                    user_id, company = resolve_from_row(
+                            payload["new"] or payload["old"], self.cur)
+                    path = f"Database/Fyrirtaeki/{company}/{user_id}.json"
+                    self.handle_shifts(payload, path)
 
-    def write_to_file(self, procedure, path):
-        try:
-            with open(Path(path), "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except FileNotFoundError:
-            data = []
-
-        procedure(data)
-
+    def write_to_file(self, data, path):
         dir_name = os.path.dirname(path) or "."
         os.makedirs(dir_name, exist_ok=True)
         with tempfile.NamedTemporaryFile("w", dir=dir_name, delete=False, encoding="utf-8") as tmp_file:
@@ -72,287 +82,123 @@ class Incoming():
         os.replace(temp_path, path)
         self.outgoing.unlock_file(path, data)
 
-    def handle_users(self, payload):
+    def handle_users(self, payload, path):
+        data = read(path)
         action = payload["action"]
         if action == "INSERT":
             new = payload["new"]
-            new_user = {
-                "id": new["id"],
-                "name": new["name"],
-                "pin": new["pin"]
-            }
-
-            def procedure(data):
-                data.append(new_user)
+            add_local_user(new, data, self.cur)
         elif action == "DELETE":
             old = payload["old"]
-            def procedure(data):
-                data[:] = [d for d in data if d["id"] != old["id"]]
+            delete_local_user(old, data, self.cur)
         else:
             old = payload["old"]
             new = payload["new"]
 
-            def procedure(data):
-                for i, d in enumerate(data):
-                    if d["id"] == old["id"]:
-                        data[i] = new
-                        break
+            edit_local_user(old, new, data, self.cur)
 
-        self.write_to_file(procedure, "Database/users.json")
+        self.write_to_file(data, path)
 
-    def handle_contracts(self, payload):
+    def handle_contracts(self, payload, path):
+        data = read(path)
         action = payload["action"]
         if action == "INSERT":
             new = payload["new"]
-
-            company = new["company"]
-
-            def procedure(data):
-                for i, d in enumerate(data):
-                    if d["id"] == new["user_id"]:
-                        data[i]["company"] = company
-                        for i2, d2 in new["custom_settings"].items():
-                            data[i][i2] = d2
-
+            add_local_contract(new, data)
         elif action == "DELETE":
-            def procedure(data):
-                return
+            return
         else:
-            # assume company_id never changes, just adds a new one, so custom_settings only changes
             new = payload["new"]
+            edit_local_contract(new, data)
 
-            def procedure(data):
-                for i, d in enumerate(data):
-                    if d["id"] == new["user_id"]:
-                        for i2, d2 in new["custom_settings"].items():
-                            data[i][i2] = d2
+        self.write_to_file(data, path)
 
-        self.write_to_file(procedure, "Database/users.json")
-
-    def handle_companies(self, payload):
+    def handle_companies(self, payload, path):
+        data = read(path)
         action = payload["action"]
         if action == "INSERT":
             new = payload["new"]
-            def procedure(data):
-                for _, loc in data.items():
-                    if new["name"] not in loc:
-                        loc[new["name"]] = []
+            add_local_company(new, data)
 
         elif action == "DELETE":
             old = payload["old"]
-            def procedure(data):
-                for _, loc in data.items():
-                    del loc[old["name"]]
+            delete_local_company(old, data)
         else:
             old = payload["old"]
             new = payload["new"]
+            edit_local_company(old, new, data)
 
-            def procedure(data):
-                for _, loc in data.items():
-                    if old["name"] in loc:
-                        loc[new["name"]] = loc.pop(old["name"])
+        self.write_to_file(data, path)
 
-        self.write_to_file(procedure, "Database/task_config.json")
-
-    def handle_locations(self, payload):
+    def handle_locations(self, payload, path):
+        data = read(path)
         action = payload["action"]
         if action == "INSERT":
             new = payload["new"]
-            def procedure(data):
-                self.cur.execute("SELECT name FROM companies", [])
-                companies = [row[0] for row in self.cur.fetchall()]
-
-                data[new["address"]] = {name: [] for name in companies}
+            add_local_location(new, data, self.cur)
 
         elif action == "DELETE":
             old = payload["old"]
-            def procedure(data):
-                del data[old["address"]]
+            delete_local_location(old, data)
 
         else:
             old = payload["old"]
             new = payload["new"]
+            edit_local_location(old, new, data)
 
-            def procedure(data):
-                if old["address"] in data:
-                    data[new["address"]] = data.pop(old["address"])
+        self.write_to_file(data, path)
 
-        self.write_to_file(procedure, "Database/task_config.json")
-
-    def handle_requests(self, payload):
+    def handle_requests(self, payload, path):
+        data = read(path)
         action = payload["action"]
         if action == "INSERT":
             new = payload["new"]
-            company = new["company"]
-            location = new["location"]
-            task_id = new["task_id"]
-            self.cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
-            task = self.cur.fetchone()[0]
-            user_id = new["user_id"]
-            new_request = {
-                "id": new["id"],
-                "task": task,
-                "location": location,
-                "company": company,
-                "requested_start": new["requested_start"],
-                "requested_end": new["requested_end"],
-                "reason": new["reason"],
-                "status": new["status"]
-            }
-            for field, value in new["extra"].items():
-                new_request[field] = value
-            def procedure(data):
-                data.append(new_request)
+            add_local_request(new, data, self.cur)
 
         elif action == "DELETE":
             old = payload["old"]
-            company = old["company"]
-            user_id = old["user_id"]
-            def procedure(data):
-                data[:] = [d for d in data if d["id"] != old["id"]]
+            delete_local_request(old, data)
+
+        else:
+            new = payload["new"]
+            edit_local_request(new, data, self.cur)
+
+        self.write_to_file(data, path)
+
+    def handle_tasks(self, payload, path):
+        data = read(path)
+        action = payload["action"]
+        if action == "INSERT":
+            new = payload["new"]
+            add_local_task(new, data)
+
+        elif action == "DELETE":
+            old = payload["old"]
+            delete_local_task(old, data)
 
         else:
             old = payload["old"]
             new = payload["new"]
-            company = new["company"]
-            location = new["location"]
-            task_id = new["task_id"]
-            self.cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
-            task = self.cur.fetchone()[0]
-            user_id = new["user_id"]
-            new_request = {
-                "id": new["id"],
-                "task": task,
-                "location": location,
-                "company": company,
-                "requested_start": new["requested_start"],
-                "requested_end": new["requested_end"],
-                "reason": new["reason"],
-                "status": new["status"]
-            }
-            for field, value in new["extra"].items():
-                new_request[field] = value
+            edit_local_task(old, new, data)
 
-            def procedure(data):
-                for d in data:
-                    if d["id"] == new["id"]:
-                        d.update(new_request)
+        self.write_to_file(data, path)
 
-        self.write_to_file(procedure, f"Database/requests/{company}/{user_id}_requests.json")
-
-    def handle_tasks(self, payload):
+    def handle_shifts(self, payload, path):
+        data = read(path)
         action = payload["action"]
         if action == "INSERT":
             new = payload["new"]
-            new_task = {
-                "id": new["id"],
-                "name": new["name"],
-                "completed": new["completed"]
-            }
-            company = new["company"]
-            location = new["location"]
-
-            def procedure(data):
-                data[location][company].append(new_task)
+            add_local_shift(new, data, self.cur)
 
         elif action == "DELETE":
             old = payload["old"]
-            company = old["company"]
-            location = old["location"]
-            def procedure(data):
-                data[location][company][:] = [d for d in data[location][company] if d["id"] != old["id"]]
+            delete_local_shift(old, data, self.cur)
 
         else:
-            old = payload["old"]
             new = payload["new"]
-            old_company = old["company"]
-            old_location = old["location"]
+            edit_local_shift(new, data, self.cur)
 
-            new_company = new["company"]
-            new_location = new["location"]
-
-            new_task = {
-                "id": new["id"],
-                "name": new["name"],
-                "completed": new["completed"]
-            }
-
-            def procedure(data):
-                data[old_location][old_company][:] = [d for d in data[old_location][old_company] if d["id"] != old["id"]]
-                data[new_location][new_company].append(new_task)
-
-        self.write_to_file(procedure, "Database/task_config.json")
-
-    def handle_shifts(self, payload):
-        action = payload["action"]
-        if action == "INSERT":
-            new = payload["new"]
-            contract_id = new["contract_id"]
-            self.cur.execute("SELECT company, user_id FROM contracts WHERE id=%s", [contract_id])
-            company, user_id = self.cur.fetchone()
-
-            task_id = new["task_id"]
-            location = new["location"]
-
-            self.cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
-            task = self.cur.fetchone()[0]
-
-            new_shift = {
-                "id": new["id"],
-                "task": task,
-                "location": location,
-                "clock_in": new["clock_in"]
-            }
-
-            if "clock_out" in new.keys():
-                new_shift["clock_out"] = new["clock_out"]
-
-            for field, value in new["extra"].items():
-                new_shift[field] = value
-
-            def procedure(data):
-                data.append(new_shift)
-
-        elif action == "DELETE":
-            old = payload["old"]
-            contract_id = old["contract_id"]
-            self.cur.execute("SELECT user_id, company FROM contracts WHERE id=%s", [contract_id])
-            user_id, company = self.cur.fetchone()
-
-            def procedure(data):
-                data[:] = [d for d in data if d["id"] != old["id"]]
-
-        else:
-            old = payload["old"]
-            new = payload["new"]
-            contract_id = new["contract_id"]
-            self.cur.execute("SELECT company, user_id FROM contracts WHERE id=%s", [contract_id])
-            company, user_id = self.cur.fetchone()
-
-            task_id = new["task_id"]
-            location = new["location"]
-
-            self.cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
-            task = self.cur.fetchone()[0]
-
-            new_shift = {
-                "id": new["id"],
-                "task": task,
-                "location": location,
-                "clock_in": new["clock_in"]
-            }
-            if "clock_out" in new.keys():
-                new_shift["clock_out"] = new["clock_out"]
-            for field, value in new["extra"].items():
-                new_shift[field] = value
-
-
-            def procedure(data):
-                for d in data:
-                    if d["id"] == new["id"]:
-                        d.update(new_shift)
-
-        self.write_to_file(procedure, f"Database/Fyrirtaeki/{company}/{user_id}.json")
+        self.write_to_file(data, path)
 
 class ListenerThread:
     def __init__(self, dsn, channels, on_notify):

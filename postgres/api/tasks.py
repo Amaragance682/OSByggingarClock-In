@@ -20,3 +20,39 @@ def edit_task(cur, value):
 
 def delete_task(cur, value):
     cur.execute(delete_sql("tasks", "id"), [value["id"]])
+
+def add_local_task(new, data, _cur):
+    new_task = {
+        "id": new["id"],
+        "name": new["name"],
+        "completed": new["completed"]
+    }
+    company = new["company"]
+    location = new["location"]
+
+    data[location][company].append(new_task)
+
+def delete_local_task(old, data):
+    company = old["company"]
+    location = old["location"]
+    data[location][company][:] = [d for d in data[location][company] if d["id"] != old["id"]]
+def delete_local_task_from_id(id, data):
+    for _, companies in data.items():
+        for _, tasks in companies.items():
+            for i, task in enumerate(tasks):
+                if task.get("id") == id:
+                    del tasks[i]
+def edit_local_task(new, data, _cur):
+    new_company = new["company"]
+    new_location = new["location"]
+
+    new_task = {
+        "id": new["id"],
+        "name": new["name"],
+        "completed": new["completed"]
+    }
+
+    for companies_dict in data.values():
+        for tasks in companies_dict.values():
+            tasks[:] = [d for d in tasks if d["id"] != new_task["id"]]
+    data[new_location][new_company].append(new_task)

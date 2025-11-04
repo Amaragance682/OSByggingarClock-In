@@ -51,3 +51,62 @@ def delete_request(cur, value):
 
     sql = delete_sql("requests", "id")
     cur.execute(sql, [id])
+
+
+
+def add_local_request(new, data, cur):
+    company = new["company"]
+    location = new["location"]
+    task_id = new["task_id"]
+    cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
+    task = cur.fetchone()[0]
+    user_id = new["user_id"]
+    new_request = {
+        "id": new["id"],
+        "task": task,
+        "location": location,
+        "company": company,
+        "requested_start": new["requested_start"].isoformat(),
+        "requested_end": new["requested_end"].isoformat(),
+        "reason": new["reason"],
+        "status": new["status"]
+    }
+    for field, value in new["extra"].items():
+        new_request[field] = value
+        data.append(new_request)
+
+    return (user_id, company)
+def edit_local_request(new, data, cur):
+    company = new["company"]
+    location = new["location"]
+    task_id = new["task_id"]
+    cur.execute("SELECT name FROM tasks WHERE id=%s", [task_id])
+    task = cur.fetchone()[0]
+    user_id = new["user_id"]
+    new_request = {
+        "id": new["id"],
+        "task": task,
+        "location": location,
+        "company": company,
+        "requested_start": new["requested_start"].isoformat(),
+        "requested_end": new["requested_end"].isoformat(),
+        "reason": new["reason"],
+        "status": new["status"]
+    }
+    for field, value in new["extra"].items():
+        new_request[field] = value
+
+    for d in data:
+        if d["id"] == new["id"]:
+            d.update(new_request)
+
+    return (user_id, company)
+def delete_local_request(old, data):
+    company = old["company"]
+    user_id = old["user_id"]
+    data[:] = [d for d in data if d["id"] != old["id"]]
+
+    return (user_id, company)
+
+def delete_local_request_by_id(id, data):
+    data[:] = [d for d in data if d["id"] != id]

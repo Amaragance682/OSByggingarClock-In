@@ -1,6 +1,7 @@
 import os
 import time
 import json
+from lib.lib import update_last_sync
 from lib.new_watcher import detect_changes
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -66,6 +67,7 @@ class JSONChangeHandler(FileSystemEventHandler):
             return
 
         self._last_modified[event.src_path] = now
+        update_last_sync()
 
         new_data = _load_json(event.src_path)
         if new_data is not None:
